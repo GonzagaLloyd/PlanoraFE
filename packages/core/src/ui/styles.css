@@ -156,6 +156,8 @@ button {
   width: 384px;
   max-width: calc(100vw - 32px);
   height: min(620px, calc(100vh - 120px));
+  /* dvh follows the mobile browser's collapsing toolbar; vh is the fallback. */
+  height: min(620px, calc(100dvh - 120px));
   background: var(--pl-bg);
   border: 1px solid var(--pl-line);
   border-radius: var(--pl-radius);
@@ -184,7 +186,8 @@ button {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .pl-panel {
+  .pl-panel,
+  .pl-backdrop {
     animation: none;
   }
   .pl-launcher {
@@ -192,14 +195,94 @@ button {
   }
 }
 
-@media (max-width: 480px) {
+/* Dims the page behind the bottom sheet on phones; not shown on larger screens. */
+.pl-backdrop {
+  display: none;
+}
+
+/* Short desktop windows: keep the panel inside the viewport. */
+@media (max-height: 560px) and (min-width: 481px) {
   .pl-panel {
-    left: 8px !important;
-    right: 8px !important;
-    bottom: 84px;
-    width: auto;
+    bottom: 12px;
+    height: calc(100vh - 24px);
+    height: calc(100dvh - 24px);
+  }
+  .pl-right .pl-panel {
+    right: 88px;
+  }
+  .pl-left .pl-panel {
+    left: 88px;
+  }
+}
+
+/* Phones: the panel becomes a bottom sheet over the page. Its own close
+   button replaces the launcher, which would otherwise cover the footer. */
+@media (max-width: 480px) {
+  .pl-panel,
+  .pl-right .pl-panel,
+  .pl-left .pl-panel {
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: 100%;
     max-width: none;
-    height: calc(100% - 100px);
+    height: calc(100vh - 24px);
+    height: calc(100dvh - 24px);
+    border-radius: 16px 16px 0 0;
+    border-bottom: none;
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    animation-name: pl-sheet-in;
+  }
+  .pl-is-open .pl-launcher {
+    display: none;
+  }
+  .pl-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(12, 12, 14, 0.4);
+    animation: pl-fade 160ms ease-out;
+  }
+  .pl-launcher {
+    bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+  }
+  .pl-right .pl-launcher {
+    right: 16px;
+  }
+  .pl-left .pl-launcher {
+    left: 16px;
+  }
+  /* 40px+ touch targets; 16px text stops iOS zooming into fields. */
+  .pl-icon-btn {
+    width: 40px;
+    height: 40px;
+  }
+  .pl-input,
+  .pl-textarea {
+    font-size: 16px;
+  }
+  .pl-btn {
+    height: 44px;
+  }
+  .pl-body {
+    padding: 16px 14px;
+  }
+}
+
+@keyframes pl-fade {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes pl-sheet-in {
+  from {
+    transform: translateY(24px);
+    opacity: 0;
+  }
+  to {
+    transform: none;
+    opacity: 1;
   }
 }
 
@@ -252,6 +335,7 @@ button {
 
 .pl-footer {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
   justify-content: flex-end;
   padding: 12px 16px;
@@ -449,29 +533,59 @@ button {
   border-color: var(--pl-accent);
   background: color-mix(in srgb, var(--pl-accent) 5%, var(--pl-bg));
 }
+.pl-choice:hover .pl-choice-arrow {
+  color: var(--pl-accent);
+  transform: translateX(2px);
+}
+/* Scoped class selectors only: a bare `.pl-choice span` would also restyle
+   the icon box (a span) and knock the icon off-centre. */
 .pl-choice-icon {
-  width: 38px;
-  height: 38px;
+  width: 40px;
+  height: 40px;
   border-radius: 10px;
-  display: grid;
-  place-items: center;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   background: color-mix(in srgb, var(--pl-accent) 12%, var(--pl-bg));
   color: var(--pl-accent);
   flex-shrink: 0;
 }
 .pl-choice-icon svg {
+  display: block;
   width: 20px;
   height: 20px;
+  flex-shrink: 0;
 }
-.pl-choice span {
+.pl-choice-text {
   display: flex;
   flex-direction: column;
+  gap: 1px;
+  flex: 1;
+  min-width: 0;
 }
-.pl-choice b {
+.pl-choice-text b {
   font-weight: 600;
+  line-height: 1.3;
 }
-.pl-choice small {
+.pl-choice-text small {
+  font-size: 13px;
+  line-height: 1.35;
   color: var(--pl-ink-dim);
+}
+.pl-choice-arrow {
+  display: block;
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  color: var(--pl-ink-dim);
+  transition:
+    transform 140ms ease,
+    color 140ms ease;
+}
+@media (prefers-reduced-motion: reduce) {
+  .pl-choice-arrow {
+    transition: none;
+  }
 }
 
 .pl-section-head {

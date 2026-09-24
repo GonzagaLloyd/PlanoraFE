@@ -22,19 +22,21 @@ export function Home() {
             <span class="pl-choice-icon">
               <IconBug />
             </span>
-            <span>
+            <span class="pl-choice-text">
               <b>{t.reportBug}</b>
               <small>{t.reportBugHint}</small>
             </span>
+            <IconChevron class="pl-choice-arrow" />
           </button>
           <button type="button" class="pl-choice" onClick={() => widget.startReport('feature')}>
             <span class="pl-choice-icon">
               <IconSpark />
             </span>
-            <span>
+            <span class="pl-choice-text">
               <b>{t.requestFeature}</b>
               <small>{t.requestFeatureHint}</small>
             </span>
+            <IconChevron class="pl-choice-arrow" />
           </button>
         </div>
 

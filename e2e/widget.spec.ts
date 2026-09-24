@@ -289,6 +289,69 @@ test('forged user hash is rejected', async ({ page }) => {
   expect((await opsState(page)).tickets).toHaveLength(0);
 });
 
+/** Offset between the centre of each choice icon and the centre of its box, in px. */
+async function iconCentreOffsets(page: Page) {
+  return panel(page)
+    .locator('.pl-choice-icon')
+    .evaluateAll((boxes) =>
+      boxes.map((box) => {
+        const b = box.getBoundingClientRect();
+        const s = box.querySelector('svg')!.getBoundingClientRect();
+        return Math.max(Math.abs(b.x + b.width / 2 - (s.x + s.width / 2)), Math.abs(b.y + b.height / 2 - (s.y + s.height / 2)));
+      }),
+    );
+}
+
+test('home choices: icons are centred in their boxes', async ({ page }) => {
+  await page.goto('/hostile.html');
+  await launcher(page).click();
+  const offsets = await iconCentreOffsets(page);
+  expect(offsets).toHaveLength(2);
+  for (const offset of offsets) expect(offset).toBeLessThanOrEqual(0.5);
+  await panel(page).locator('.pl-choices').screenshot({ path: `${SHOTS}/10-choices.png` });
+});
+
+test.describe('phone layout', () => {
+  test.use({ viewport: { width: 375, height: 667 }, hasTouch: true, isMobile: true });
+
+  test('panel is a full-width bottom sheet and the launcher gets out of the way', async ({ page }) => {
+    await page.goto('/plain.html');
+    await expect(launcher(page)).toBeVisible();
+    await launcher(page).click();
+
+    const box = (await panel(page).boundingBox())!;
+    expect(box.x).toBe(0);
+    expect(box.width).toBe(375);
+    expect(Math.round(box.y + box.height)).toBe(667);
+    await expect(launcher(page)).toBeHidden();
+
+    for (const offset of await iconCentreOffsets(page)) expect(offset).toBeLessThanOrEqual(0.5);
+    await page.screenshot({ path: `${SHOTS}/11-mobile-home.png` });
+
+    // No sideways scrolling inside the panel on any screen.
+    const overflows = () => panel(page).evaluate((el) => {
+      const body = el.querySelector('.pl-body')!;
+      return body.scrollWidth - body.clientWidth;
+    });
+    expect(await overflows()).toBeLessThanOrEqual(0);
+
+    await panel(page).getByRole('button', { name: /Report a bug/ }).click();
+    expect(await overflows()).toBeLessThanOrEqual(0);
+    await expect(panel(page).getByLabel('Short summary')).toHaveCSS('font-size', '16px');
+    await page.screenshot({ path: `${SHOTS}/12-mobile-report.png` });
+
+    await panel(page).getByRole('button', { name: 'Close' }).click();
+    await expect(panel(page)).toHaveCount(0);
+    await expect(launcher(page)).toBeVisible();
+
+    // Tapping the dimmed page above the sheet closes it too.
+    await launcher(page).click();
+    await expect(page.locator('#planora-widget .pl-backdrop')).toBeVisible();
+    await page.mouse.click(187, 10);
+    await expect(panel(page)).toHaveCount(0);
+  });
+});
+
 test('disabled site key: nothing renders', async ({ page }) => {
   await page.goto('/index.html');
   await page.evaluate(() => {

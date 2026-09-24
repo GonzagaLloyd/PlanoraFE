@@ -69,7 +69,7 @@ export function App({ hideLauncher, zIndex }: { hideLauncher: boolean; zIndex: n
 
   return (
     <div
-      class={`pl-root ${branding.position === 'bottom-left' ? 'pl-left' : 'pl-right'}`}
+      class={`pl-root ${branding.position === 'bottom-left' ? 'pl-left' : 'pl-right'}${state.open ? ' pl-is-open' : ''}`}
       style={style}
       onKeyDown={(event) => {
         if (event.key === 'Escape' && state.open) {
@@ -78,6 +78,7 @@ export function App({ hideLauncher, zIndex }: { hideLauncher: boolean; zIndex: n
         }
       }}
     >
+      {state.open && <div class="pl-backdrop" aria-hidden="true" style={{ zIndex: String(zIndex) }} onClick={() => widget.close()} />}
       {state.open && (
         <div
           ref={panelRef}
