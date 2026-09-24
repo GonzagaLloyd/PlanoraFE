@@ -19,7 +19,7 @@
     "size": "node scripts/check-size.mjs",
     "e2e": "playwright test",
     "test:php": "php integrations/laravel/tests/render_test.php",
-    "check": "npm run typecheck && npm run build && npm test && npm run test:php && npm run size"
+    "check": "npm run build && npm run typecheck && npm test && npm run test:php && npm run size"
   },
   "devDependencies": {
     "@playwright/test": "^1.63.0",

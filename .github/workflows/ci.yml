@@ -22,8 +22,9 @@ jobs:
           php-version: '8.2'
 
       - run: npm ci
-      - run: npm run typecheck
+      # Build first: the React package and playground typecheck against built .d.ts files.
       - run: npm run build
+      - run: npm run typecheck
       - run: npm test
       - run: npm run test:php
       - run: npm run size
