@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Planora widget playground</title>
+  <style>
+    body { font: 15px/1.5 system-ui, sans-serif; max-width: 720px; margin: 48px auto; padding: 0 20px; color: #1c1d1f; }
+    li { margin: 10px 0; } code { background: #f1f1ef; padding: 1px 5px; border-radius: 4px; }
+  </style>
+</head>
+<body>
+  <h1>Planora widget playground</h1>
+  <p>Each page installs the widget a different way. Mock API and ops page: <a href="http://localhost:8787/">localhost:8787</a>.</p>
+  <ul>
+    <li><a href="/plain.html">Plain HTML</a> — one <code>&lt;script&gt;</code> tag, the way any stack installs it (Laravel, Django, WordPress, Rails…)</li>
+    <li><a href="/react.html">React app</a> — <code>@planora/widget-react</code>, with login/logout to test identify</li>
+    <li><a href="/hostile.html">Hostile CSS</a> — aggressive global styles and z-index wars; the widget must look identical</li>
+    <li><a href="/public.html">Public mode</a> — anonymous visitors, different branding, bubble on the left</li>
+  </ul>
+</body>
+</html>

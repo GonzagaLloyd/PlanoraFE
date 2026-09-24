@@ -1,0 +1,27 @@
+{
+    "name": "planora/laravel-widget",
+    "description": "Add the Planora bug & feature reporting widget to a Laravel app with one Blade directive.",
+    "type": "library",
+    "license": "MIT",
+    "keywords": ["laravel", "planora", "bug-report", "feedback", "widget"],
+    "require": {
+        "php": "^8.1",
+        "illuminate/support": "^10.0|^11.0|^12.0|^13.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "Planora\\LaravelWidget\\": "src/"
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "Planora\\LaravelWidget\\PlanoraServiceProvider"
+            ]
+        }
+    },
+    "scripts": {
+        "test": "php tests/render_test.php"
+    },
+    "minimum-stability": "stable"
+}

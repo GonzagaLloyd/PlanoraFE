@@ -1,0 +1,20 @@
+{
+  "name": "@planora/mock-api",
+  "version": "0.1.0",
+  "description": "Fake Planora API implementing /widget/v1, plus an ops page to move tickets through statuses.",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "start": "tsx src/server.ts"
+  },
+  "dependencies": {
+    "@fastify/cors": "^11.3.0",
+    "@fastify/static": "^10.1.4",
+    "@planora/widget-contract": "0.1.0",
+    "fastify": "^5.12.5"
+  },
+  "devDependencies": {
+    "tsx": "^4.23.15"
+  }
+}

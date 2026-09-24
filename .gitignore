@@ -1,0 +1,8 @@
+node_modules/
+dist/
+.data/
+*.tsbuildinfo
+test-results/
+playwright-report/
+integrations/laravel/vendor/
+apps/playground/public/generated/

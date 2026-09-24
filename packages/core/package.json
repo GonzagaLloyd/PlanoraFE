@@ -1,0 +1,31 @@
+{
+  "name": "@planora/widget",
+  "version": "0.1.0",
+  "description": "Planora widget core: capture, report and track bugs and feature requests from any website.",
+  "license": "MIT",
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/types/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/types/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "sideEffects": [
+    "./dist/widget.js"
+  ],
+  "scripts": {
+    "build": "vite build && tsc -p tsconfig.build.json",
+    "dev": "vite build --watch --mode development"
+  },
+  "dependencies": {
+    "@planora/widget-contract": "0.1.0",
+    "modern-screenshot": "^4.7.0",
+    "preact": "^10.29.8"
+  }
+}

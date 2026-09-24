@@ -1,0 +1,4 @@
+# Keep LF in the repo for every platform (Windows, macOS, Linux, CI).
+* text=auto eol=lf
+*.png binary
+*.jpg binary

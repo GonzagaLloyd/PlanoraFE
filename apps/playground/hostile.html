@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Demo Shop - hostile CSS</title>
+  <script src="http://localhost:8787/cdn/loader.js" data-site-key="pk_test_demo" data-api-base="http://localhost:8787" data-color="#7c3aed" async></script>
+  <script>
+    window.Planora = window.Planora || function () { (window.Planora.q = window.Planora.q || []).push(arguments); };
+    Planora('identify', { id: 'user_42', name: 'Ana Reyes', email: 'ana@example.com' });
+  </script>
+  <style>
+    /* Everything a messy theme might do. None of it may reach the widget. */
+    * { font-family: 'Comic Sans MS', cursive !important; letter-spacing: 2px !important; }
+    html { font-size: 22px; }
+    div, span, button, input, textarea { border: 3px dashed hotpink !important; text-transform: uppercase; }
+    button { background: yellow !important; color: red !important; padding: 20px !important; border-radius: 0 !important; }
+    svg { display: none !important; }
+    .sticky-banner { position: fixed; bottom: 0; left: 0; right: 0; z-index: 999999; background: #111; color: #fff; padding: 12px; text-align: center; }
+    canvas { display: block; margin: 0 auto 80px; }
+  </style>
+</head>
+<body>
+  <canvas id="c" width="600" height="120"></canvas>
+  <div class="sticky-banner">We use cookies. (z-index: 999999)</div>
+  <script type="module">
+    import '/src/plain.ts';
+    const ctx = document.getElementById('c').getContext('2d');
+    const g = ctx.createLinearGradient(0, 0, 600, 0);
+    g.addColorStop(0, '#f43f5e');
+    g.addColorStop(1, '#6366f1');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, 600, 120);
+  </script>
+</body>
+</html>

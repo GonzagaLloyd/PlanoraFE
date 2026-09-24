@@ -1,0 +1,14 @@
+{
+  "name": "@planora/playground",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --port 5173 --strictPort"
+  },
+  "dependencies": {
+    "@planora/widget-react": "0.1.0",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0"
+  }
+}

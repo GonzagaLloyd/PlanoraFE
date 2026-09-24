@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Planora Mock Ops</title>
+<style>
+  :root { --bg:#f6f6f4; --card:#fff; --ink:#1c1d1f; --dim:#686b70; --line:rgba(0,0,0,.12); --accent:#c94a16;
+    --to_do:#6b7280; --in_progress:#2563eb; --blocked:#c2410c; --in_review:#a16207; --shipped:#15803d; --declined:#6b7280; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink); font:14px/1.45 system-ui, -apple-system, 'Segoe UI', sans-serif; padding:24px 16px 64px; }
+  main { max-width: 1100px; margin: 0 auto; display:flex; flex-direction:column; gap:16px; }
+  header { display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
+  h1 { font-size:20px; margin:0; flex:1; }
+  .muted { color:var(--dim); font-size:12px; }
+  button { font:inherit; border:1px solid var(--line); background:#fff; border-radius:8px; padding:6px 12px; cursor:pointer; }
+  button.primary { background:var(--accent); color:#fff; border-color:var(--accent); }
+  button.danger { color:#b42318; }
+  .chaos-on { background:#b42318; color:#fff; border-color:#b42318; }
+  .ticket { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:14px; display:grid; grid-template-columns: 1fr 340px; gap:16px; }
+  @media (max-width: 860px) { .ticket { grid-template-columns: 1fr; } }
+  .ticket h2 { font-size:15px; margin:0 0 4px; }
+  .chip { display:inline-block; font-size:12px; font-weight:600; padding:2px 8px; border-radius:10px; color:#fff; }
+  .desc { white-space:pre-wrap; margin:8px 0; }
+  .shot { max-width:100%; max-height:220px; border:1px solid var(--line); border-radius:8px; display:block; margin-top:8px; }
+  details { margin-top:8px; }
+  pre { background:#f1f1ef; padding:8px; border-radius:8px; overflow:auto; max-height:240px; font-size:12px; }
+  form { display:flex; flex-direction:column; gap:8px; }
+  label { font-size:12px; font-weight:600; display:flex; flex-direction:column; gap:4px; }
+  select, textarea, input { font:inherit; border:1px solid var(--line); border-radius:8px; padding:6px 8px; background:#fff; }
+  textarea { min-height:60px; resize:vertical; }
+  .empty { text-align:center; color:var(--dim); padding:48px; background:var(--card); border:1px dashed var(--line); border-radius:12px; }
+  .timeline { font-size:12px; color:var(--dim); margin:6px 0 0; padding-left:16px; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Planora mock ops</h1>
+    <span class="muted">Stands in for the Planora team and AI pipeline. Changes show up in the widget within 30 seconds, or immediately when it is reopened.</span>
+    <button id="chaos" type="button">Simulate outage: off</button>
+    <button id="reset" type="button" class="danger">Delete all tickets</button>
+  </header>
+  <div id="list"></div>
+</main>
+<script>
+const STATUSES = ['to_do','in_progress','blocked','in_review','shipped','declined'];
+const LABELS = { to_do:'To Do', in_progress:'In Progress', blocked:'Blocked', in_review:'In Review', shipped:'Shipped', declined:'Declined' };
+const list = document.getElementById('list');
+const chaosBtn = document.getElementById('chaos');
+let editing = false;
+
+function esc(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function reporter(t) { return t.reporter.user ? (t.reporter.user.name || t.reporter.user.email || t.reporter.user.id) : 'Anonymous visitor'; }
+
+function render(state) {
+  chaosBtn.textContent = 'Simulate outage: ' + (state.chaos ? 'ON' : 'off');
+  chaosBtn.className = state.chaos ? 'chaos-on' : '';
+  if (!state.tickets.length) { list.innerHTML = '<div class="empty">No tickets yet. Open the playground at http://localhost:5173 and report something.</div>'; return; }
+  list.innerHTML = state.tickets.map(t => {
+    const ctx = t.context;
+    return `
+    <section class="ticket">
+      <div>
+        <span class="chip" style="background:var(--${t.status})">${LABELS[t.status]}</span>
+        <span class="muted">${esc(t.key)} · ${t.type} · ${esc(t.siteKey)} · ${esc(reporter(t))} · ${new Date(t.createdAt).toLocaleString()}</span>
+        <h2>${esc(t.title)}</h2>
+        <div class="desc">${esc(t.description)}</div>
+        ${t.screenshotId ? `<a href="/__ops/uploads/${t.screenshotId}" target="_blank"><img class="shot" src="/__ops/uploads/${t.screenshotId}" alt="screenshot"></a>` : '<span class="muted">No screenshot</span>'}
+        ${t.attachmentIds.length ? `<div class="muted">Attachments: ${t.attachmentIds.map(id => `<a href="/__ops/uploads/${id}" target="_blank">${id}</a>`).join(', ')}</div>` : ''}
+        ${ctx ? `<details><summary>Captured context — ${esc(ctx.page_url)} · ${ctx.errors.length} errors · ${ctx.console.length} console · ${ctx.network.length} requests</summary><pre>${esc(JSON.stringify(ctx, null, 2))}</pre></details>` : '<div class="muted">Technical details not included</div>'}
+        <ol class="timeline">${t.timeline.map(e => `<li>${esc(e.author)}: ${esc(e.message)}</li>`).join('')}</ol>
+      </div>
+      <form data-id="${t.id}">
+        <label>Status
+          <select name="status">${STATUSES.map(s => `<option value="${s}" ${s === t.status ? 'selected' : ''}>${LABELS[s]}</option>`).join('')}</select>
+        </label>
+        <label>Blockers (one per line, used when Blocked)
+          <textarea name="blockers" placeholder="Which page should the new button link to?">${esc(t.blockers.map(b => b.message).join('\n'))}</textarea>
+        </label>
+        <label>Summary shown to the client (Shipped / Declined)
+          <textarea name="summary" placeholder="Fixed the checkout button: it now submits the order.">${esc(t.summary)}</textarea>
+        </label>
+        <label>Pull request URL
+          <input name="pull_request_url" value="${esc(t.pullRequestUrl)}" placeholder="https://github.com/acme/shop/pull/42">
+        </label>
+        <label>Timeline message (optional)
+          <input name="message" placeholder="Default message for the status">
+        </label>
+        <button class="primary" type="submit">Apply</button>
+      </form>
+    </section>`;
+  }).join('');
+}
+
+async function refresh() {
+  if (editing) return;
+  const res = await fetch('/__ops/state');
+  render(await res.json());
+}
+
+list.addEventListener('focusin', () => { editing = true; });
+list.addEventListener('focusout', () => { setTimeout(() => { editing = list.contains(document.activeElement); }, 0); });
+list.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const form = e.target;
+  const data = new FormData(form);
+  const body = {
+    status: data.get('status'),
+    blockers: String(data.get('blockers') || '').split('\n').map(s => s.trim()).filter(Boolean),
+    summary: String(data.get('summary') || ''),
+    pull_request_url: String(data.get('pull_request_url') || ''),
+    message: String(data.get('message') || '') || undefined,
+  };
+  const res = await fetch(`/__ops/tickets/${form.dataset.id}/transition`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  if (!res.ok) alert((await res.json()).error?.message || 'Failed');
+  editing = false;
+  refresh();
+});
+chaosBtn.addEventListener('click', async () => {
+  const on = !chaosBtn.classList.contains('chaos-on');
+  await fetch('/__ops/chaos', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ enabled: on }) });
+  refresh();
+});
+document.getElementById('reset').addEventListener('click', async () => {
+  if (!confirm('Delete all tickets?')) return;
+  await fetch('/__ops/reset', { method: 'POST' });
+  refresh();
+});
+refresh();
+setInterval(refresh, 4000);
+</script>
+</body>
+</html>

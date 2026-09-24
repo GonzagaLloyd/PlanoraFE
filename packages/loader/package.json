@@ -1,0 +1,13 @@
+{
+  "name": "@planora/widget-loader",
+  "version": "0.1.0",
+  "description": "Tiny script-tag loader for the Planora widget.",
+  "license": "MIT",
+  "private": true,
+  "type": "module",
+  "files": ["dist"],
+  "scripts": {
+    "build": "vite build",
+    "dev": "vite build --watch --mode development"
+  }
+}

@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Demo Shop - plain HTML install</title>
+  <!-- Planora widget: this is the entire install for any server-rendered site. -->
+  <script src="http://localhost:8787/cdn/loader.js" data-site-key="pk_test_demo" data-api-base="http://localhost:8787" async></script>
+  <script>
+    // Team mode: tell the widget who is logged in (normally rendered by your server).
+    window.Planora = window.Planora || function () { (window.Planora.q = window.Planora.q || []).push(arguments); };
+    Planora('identify', { id: 'user_42', name: 'Ana Reyes', email: 'ana@example.com' });
+    Planora('setMetadata', { appVersion: '2.3.1', plan: 'pro' });
+  </script>
+</head>
+<body>
+  <script type="module" src="/src/plain.ts"></script>
+</body>
+</html>

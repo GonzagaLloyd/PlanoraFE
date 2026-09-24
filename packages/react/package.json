@@ -1,0 +1,26 @@
+{
+  "name": "@planora/widget-react",
+  "version": "0.1.0",
+  "description": "React bindings for the Planora widget.",
+  "license": "MIT",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": ["dist"],
+  "sideEffects": false,
+  "scripts": {
+    "build": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@planora/widget": "0.1.0"
+  },
+  "peerDependencies": {
+    "react": ">=17"
+  }
+}

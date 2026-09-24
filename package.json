@@ -1,0 +1,36 @@
+{
+  "name": "planora-widget",
+  "private": true,
+  "description": "Planora widget: an installable bug & feature reporting bubble for any website.",
+  "license": "MIT",
+  "workspaces": [
+    "packages/contract",
+    "packages/core",
+    "packages/loader",
+    "packages/react",
+    "packages/mock-api",
+    "apps/playground"
+  ],
+  "scripts": {
+    "build": "npm run build -w @planora/widget-contract && npm run build -w @planora/widget && npm run build -w @planora/widget-loader && npm run build -w @planora/widget-react",
+    "dev": "npm run build && concurrently -k -n core,loader,api,site -c blue,magenta,green,yellow \"npm run dev -w @planora/widget\" \"npm run dev -w @planora/widget-loader\" \"npm run dev -w @planora/mock-api\" \"npm run dev -w @planora/playground\"",
+    "typecheck": "tsc -p packages/contract && tsc -p packages/core && tsc -p packages/loader && tsc -p packages/react --noEmit && tsc -p packages/mock-api && tsc -p apps/playground",
+    "test": "vitest run",
+    "size": "node scripts/check-size.mjs",
+    "e2e": "playwright test",
+    "test:php": "php integrations/laravel/tests/render_test.php",
+    "check": "npm run typecheck && npm run build && npm test && npm run test:php && npm run size"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.63.0",
+    "@types/node": "^26.6.2",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "concurrently": "^10.0.5",
+    "jsdom": "^28.1.0",
+    "react": "^19.3.0",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.1",
+    "vitest": "^5.0.1"
+  }
+}
