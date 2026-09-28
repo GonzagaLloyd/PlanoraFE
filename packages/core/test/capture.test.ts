@@ -42,7 +42,7 @@ it('records failed fetches but ignores the Planora API and fast successes', asyn
 
   await fetch('https://shop.test/ok');
   await fetch('https://shop.test/fail?token=abc');
-  await fetch('https://api.planora.dev/widget/v1/fail');
+  await fetch('https://api.planora.dev/api/v1/widget/fail');
 
   const entries = buffers.network.snapshot();
   expect(entries).toHaveLength(1);

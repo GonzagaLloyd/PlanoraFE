@@ -1,10 +1,12 @@
 /**
- * Mock Planora API. Implements the widget contract (/widget/v1) so the widget
- * can be built and tested end to end before the real Planora API exists.
+ * Mock Planora API. Implements the widget contract (/api/v1/widget) exactly as
+ * the Laravel implementation in Planora should: same paths, `{ data }` bodies,
+ * Laravel-style errors (`{ message, errors }`, 422 for validation), integer ids,
+ * and signed upload URLs. docs/WIDGET_API.md is the written spec of the same.
  *
- *   http://localhost:8787/            ops page: move tickets through statuses
- *   http://localhost:8787/widget/v1/  the widget API
- *   http://localhost:8787/cdn/        acts as the CDN: loader.js + widget.js
+ *   http://localhost:8787/                 ops page: move tickets through statuses
+ *   http://localhost:8787/api/v1/widget/   the widget API
+ *   http://localhost:8787/cdn/             acts as the CDN: loader.js + widget.js
  */
 import { createHmac, randomBytes, randomUUID, timingSafeEqual } from 'node:crypto';
 import { readFileSync } from 'node:fs';
@@ -25,12 +27,17 @@ import {
   type WidgetUser,
 } from '@planora/widget-contract';
 import { z } from 'zod';
-import { db, reset, save, sameReporter, toDetail, toSummary, type Reporter, type StoredTicket } from './db';
+import { db, nextId, nextTicketKey, reset, save, sameReporter, toDetail, toSummary, type Reporter, type StoredTicket } from './db';
 import { SITES, type Site } from './sites';
 
 const PORT = Number(process.env.PORT ?? 8787);
 const PUBLIC_URL = process.env.PUBLIC_URL ?? `http://localhost:${PORT}`;
 const here = dirname(fileURLToPath(import.meta.url));
+
+/** Signs upload URLs, like Laravel's APP_KEY does for URL::temporarySignedRoute. */
+const SIGNING_KEY = randomBytes(32);
+const UPLOAD_URL_TTL_MS = 10 * 60 * 1000;
+const SESSION_TTL_MS = 60 * 60 * 1000;
 
 interface Session {
   siteKey: string;
@@ -47,11 +54,11 @@ const app = Fastify({ logger: { level: process.env.LOG_LEVEL ?? 'info' }, bodyLi
 await app.register(cors, {
   origin: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', HEADERS.siteKey, HEADERS.idempotencyKey],
+  allowedHeaders: ['Content-Type', 'Accept', 'Authorization', HEADERS.siteKey, HEADERS.idempotencyKey],
   maxAge: 600,
 });
 
-// Raw bodies for presigned uploads.
+// Raw bodies for signed uploads.
 app.addContentTypeParser(/^(image|application\/(pdf|octet-stream))/, { parseAs: 'buffer' }, (_req, body, done) => done(null, body));
 
 await app.register(fastifyStatic, {
@@ -61,11 +68,17 @@ await app.register(fastifyStatic, {
 });
 
 /* ------------------------------------------------------------------ */
-/* Helpers                                                             */
+/* Helpers: responses shaped like Laravel's                            */
 /* ------------------------------------------------------------------ */
 
-function fail(reply: FastifyReply, status: number, code: string, message: string) {
-  return reply.status(status).send({ error: { code, message } });
+/** JsonResource-style success body. */
+function ok<T>(reply: FastifyReply, data: T, status = 200) {
+  return reply.status(status).send({ data });
+}
+
+/** Laravel's default error body: abort(status, message) / ValidationException. */
+function fail(reply: FastifyReply, status: number, message: string, errors?: Record<string, string[]>) {
+  return reply.status(status).send(errors ? { message, errors } : { message });
 }
 
 function originAllowed(site: Site, origin: string | undefined): boolean {
@@ -77,11 +90,11 @@ function resolveSite(request: FastifyRequest, reply: FastifyReply): Site | null 
   const key = request.headers[HEADERS.siteKey.toLowerCase()];
   const site = typeof key === 'string' ? SITES[key] : undefined;
   if (!site) {
-    fail(reply, 401, 'invalid_site_key', 'Unknown site key.');
+    fail(reply, 401, 'Unknown site key.');
     return null;
   }
   if (!originAllowed(site, request.headers.origin)) {
-    fail(reply, 403, 'origin_not_allowed', `Origin ${request.headers.origin ?? '(none)'} is not allowed for this site key.`);
+    fail(reply, 403, `Origin ${request.headers.origin ?? '(none)'} is not allowed for this site key.`);
     return null;
   }
   return site;
@@ -94,20 +107,25 @@ function resolveSession(request: FastifyRequest, reply: FastifyReply): { site: S
   const token = header.startsWith('Bearer ') ? header.slice(7) : '';
   const session = sessions.get(token);
   if (!session || session.siteKey !== site.key || session.expiresAt < Date.now()) {
-    fail(reply, 401, 'invalid_session', 'Session expired. Start a new session.');
+    fail(reply, 401, 'Unauthenticated.');
     return null;
   }
   return { site, session };
 }
 
-function parse<T>(schema: z.ZodType<T>, body: unknown, reply: FastifyReply): T | null {
+/** Validates like a FormRequest: 422 with `errors` keyed by dotted field path. */
+function validate<T>(schema: z.ZodType<T>, body: unknown, reply: FastifyReply): T | null {
   const result = schema.safeParse(body);
-  if (!result.success) {
-    const issue = result.error.issues[0];
-    fail(reply, 400, 'validation_error', issue ? `${issue.path.join('.') || 'body'}: ${issue.message}` : 'Invalid request.');
-    return null;
+  if (result.success) return result.data;
+  const errors: Record<string, string[]> = {};
+  for (const issue of result.error.issues) {
+    const field = issue.path.join('.') || 'body';
+    (errors[field] ??= []).push(`The ${field} field is invalid: ${issue.message}`);
   }
-  return result.data;
+  const fields = Object.keys(errors);
+  const summary = `${errors[fields[0]!]![0]}${fields.length > 1 ? ` (and ${fields.length - 1} more error${fields.length > 2 ? 's' : ''})` : ''}`;
+  fail(reply, 422, summary, errors);
+  return null;
 }
 
 function verifyHash(site: Site, user: WidgetUser, hash: string | undefined): boolean {
@@ -118,18 +136,23 @@ function verifyHash(site: Site, user: WidgetUser, hash: string | undefined): boo
   return a.length === b.length && timingSafeEqual(a, b);
 }
 
+function signUpload(id: string, expires: number): string {
+  return createHmac('sha256', SIGNING_KEY).update(`${id}:${expires}`).digest('hex');
+}
+
 function now(): string {
   return new Date().toISOString();
 }
 
-function findOwnTicket(id: string, siteKey: string, reporter: Reporter): StoredTicket | undefined {
+function findOwnTicket(rawId: string, siteKey: string, reporter: Reporter): StoredTicket | undefined {
+  const id = Number(rawId);
   return db.tickets.find((t) => t.id === id && t.siteKey === siteKey && sameReporter(t.reporter, reporter));
 }
 
 // Chaos mode: fail every widget call except config (so the widget still boots).
 app.addHook('onRequest', async (request, reply) => {
   if (chaos && request.url.startsWith(WIDGET_API_PREFIX) && request.method !== 'OPTIONS' && !request.url.startsWith(ENDPOINTS.config)) {
-    return fail(reply, 503, 'unavailable', 'Planora is temporarily unavailable (chaos mode).');
+    return fail(reply, 503, 'Service Unavailable');
   }
 });
 
@@ -140,61 +163,89 @@ app.addHook('onRequest', async (request, reply) => {
 app.get(ENDPOINTS.config, async (request, reply) => {
   const site = resolveSite(request, reply);
   if (!site) return;
-  return site.config;
+  return ok(reply, site.config);
 });
 
 app.post(ENDPOINTS.session, async (request, reply) => {
   const site = resolveSite(request, reply);
   if (!site) return;
-  const body = parse(SessionRequest, request.body ?? {}, reply);
+  const body = validate(SessionRequest, request.body ?? {}, reply);
   if (!body) return;
 
   if (!body.user && site.config.mode === 'team') {
-    return fail(reply, 401, 'identify_required', 'This site requires an identified user.');
+    return fail(reply, 401, 'This site requires an identified user.');
   }
   if (body.user && site.requireUserHash && !verifyHash(site, body.user, body.user_hash)) {
-    return fail(reply, 401, 'invalid_user_hash', 'The user hash does not match. Compute it on your server with your site secret.');
+    return fail(reply, 401, 'The user hash does not match. Compute it on your server with your site secret.');
   }
-  if (!body.user && !body.anonymous_id) return fail(reply, 400, 'validation_error', 'Provide user or anonymous_id.');
+  if (!body.user && !body.anonymous_id) {
+    return fail(reply, 422, 'The anonymous id field is required when user is not present.', {
+      anonymous_id: ['The anonymous id field is required when user is not present.'],
+    });
+  }
 
   const token = randomBytes(24).toString('hex');
-  const expiresAt = Date.now() + 60 * 60 * 1000;
+  const expiresAt = Date.now() + SESSION_TTL_MS;
   sessions.set(token, {
     siteKey: site.key,
     reporter: { user: body.user ?? null, anonymousId: body.user ? null : (body.anonymous_id ?? null) },
     expiresAt,
   });
-  return { token, expires_at: new Date(expiresAt).toISOString(), user: body.user ?? null };
+  return ok(reply, { token, expires_at: new Date(expiresAt).toISOString(), user: body.user ?? null });
 });
 
 app.post(ENDPOINTS.uploads, async (request, reply) => {
   const auth = resolveSession(request, reply);
   if (!auth) return;
-  const body = parse(UploadRequest, request.body, reply);
+  const body = validate(UploadRequest, request.body, reply);
   if (!body) return;
   const limits = auth.site.config.limits;
-  if (body.files.some((f) => f.size > limits.max_attachment_bytes)) {
-    return fail(reply, 413, 'file_too_large', 'One of the files is too large.');
+  const tooLarge = body.files.findIndex((f) => f.size > limits.max_attachment_bytes);
+  if (tooLarge !== -1) {
+    const message = `The file may not be greater than ${Math.round(limits.max_attachment_bytes / 1024)} kilobytes.`;
+    return fail(reply, 422, message, { [`files.${tooLarge}.size`]: [message] });
   }
+  const expires = Date.now() + UPLOAD_URL_TTL_MS;
   const uploads = body.files.map((file) => {
-    const id = `upl_${randomUUID().slice(0, 12)}`;
+    const id = randomUUID();
     db.uploads.push({ id, siteKey: auth.site.key, name: file.name, contentType: file.content_type, size: file.size, kind: file.kind, data: null });
-    return { id, upload_url: `${PUBLIC_URL}${WIDGET_API_PREFIX}/uploads/${id}`, method: 'PUT' as const, headers: { 'Content-Type': file.content_type } };
+    const query = `expires=${Math.floor(expires / 1000)}&signature=${signUpload(id, Math.floor(expires / 1000))}`;
+    return {
+      id,
+      upload_url: `${PUBLIC_URL}${WIDGET_API_PREFIX}/uploads/${id}?${query}`,
+      method: 'PUT' as const,
+      headers: { 'Content-Type': file.content_type },
+      expires_at: new Date(expires).toISOString(),
+    };
   });
   save();
-  return { uploads };
+  return ok(reply, uploads);
 });
 
-// Stands in for a presigned S3/R2 URL.
-app.put<{ Params: { id: string } }>(`${WIDGET_API_PREFIX}/uploads/:id`, async (request, reply) => {
-  const upload = db.uploads.find((u) => u.id === request.params.id);
-  if (!upload) return fail(reply, 404, 'not_found', 'Unknown upload.');
-  if (!Buffer.isBuffer(request.body)) return fail(reply, 400, 'invalid_body', 'Expected a file body.');
-  upload.data = request.body.toString('base64');
-  upload.size = request.body.length;
-  save();
-  return reply.status(200).send({ ok: true });
-});
+// Stands in for a signed route (URL::temporarySignedRoute) or an S3 presigned URL:
+// the signature is the only authorization, no session header.
+app.put<{ Params: { id: string }; Querystring: { expires?: string; signature?: string } }>(
+  `${WIDGET_API_PREFIX}/uploads/:id`,
+  async (request, reply) => {
+    const expires = Number(request.query.expires);
+    const signature = request.query.signature ?? '';
+    const expected = signUpload(request.params.id, expires);
+    const valid =
+      Number.isFinite(expires) &&
+      expires * 1000 > Date.now() &&
+      signature.length === expected.length &&
+      timingSafeEqual(Buffer.from(signature), Buffer.from(expected));
+    if (!valid) return fail(reply, 403, 'Invalid signature.');
+
+    const upload = db.uploads.find((u) => u.id === request.params.id);
+    if (!upload) return fail(reply, 404, 'Upload not found.');
+    if (!Buffer.isBuffer(request.body)) return fail(reply, 422, 'The file field is required.', { file: ['The file field is required.'] });
+    upload.data = request.body.toString('base64');
+    upload.size = request.body.length;
+    save();
+    return reply.status(204).send();
+  },
+);
 
 app.post(ENDPOINTS.tickets, async (request, reply) => {
   const auth = resolveSession(request, reply);
@@ -203,20 +254,23 @@ app.post(ENDPOINTS.tickets, async (request, reply) => {
   const idemKey = typeof idempotencyKey === 'string' ? `${auth.site.key}:${idempotencyKey}` : null;
   if (idemKey && db.idempotency[idemKey]) {
     const existing = db.tickets.find((t) => t.id === db.idempotency[idemKey]);
-    if (existing) return reply.status(200).send(toSummary(existing));
+    // A replay returns the original ticket with 200, not a second 201.
+    if (existing) return ok(reply, toSummary(existing));
   }
 
-  const body = parse(CreateTicketRequest, request.body, reply);
+  const body = validate(CreateTicketRequest, request.body, reply);
   if (!body) return;
   const ownUploads = new Set(db.uploads.filter((u) => u.siteKey === auth.site.key && u.data).map((u) => u.id));
   const missing = [...body.attachment_ids, ...(body.screenshot_id ? [body.screenshot_id] : [])].filter((id) => !ownUploads.has(id));
-  if (missing.length) return fail(reply, 400, 'unknown_upload', `Uploads not found or not finished: ${missing.join(', ')}`);
+  if (missing.length) {
+    const message = 'One or more uploads were not found or not finished.';
+    return fail(reply, 422, message, { attachment_ids: [message] });
+  }
 
   const at = now();
-  db.counter += 1;
   const ticket: StoredTicket = {
-    id: `tkt_${randomUUID().slice(0, 12)}`,
-    key: `PLN-${db.counter}`,
+    id: nextId('ticket'),
+    key: nextTicketKey(auth.site.key, auth.site.ticketPrefix),
     siteKey: auth.site.key,
     reporter: auth.session.reporter,
     type: body.type,
@@ -231,13 +285,13 @@ app.post(ENDPOINTS.tickets, async (request, reply) => {
     screenshotId: body.screenshot_id,
     attachmentIds: body.attachment_ids,
     context: body.context,
-    timeline: [{ id: randomUUID(), at, kind: 'created', author: 'reporter', status: 'to_do', message: 'Ticket created' }],
+    timeline: [{ id: nextId('timeline'), at, kind: 'created', author: 'reporter', status: 'to_do', message: 'Ticket created' }],
   };
   db.tickets.push(ticket);
   if (idemKey) db.idempotency[idemKey] = ticket.id;
   save();
   request.log.info({ key: ticket.key, type: ticket.type }, 'ticket created');
-  return reply.status(201).send(toSummary(ticket));
+  return ok(reply, toSummary(ticket), 201);
 });
 
 app.get<{ Querystring: { updated_since?: string } }>(ENDPOINTS.tickets, async (request, reply) => {
@@ -247,38 +301,46 @@ app.get<{ Querystring: { updated_since?: string } }>(ENDPOINTS.tickets, async (r
   const tickets = db.tickets
     .filter((t) => t.siteKey === auth.site.key && sameReporter(t.reporter, auth.session.reporter))
     .filter((t) => new Date(t.updatedAt).getTime() > since)
+    .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
     .map(toSummary);
-  return { tickets, server_time: now() };
+  return ok(reply, tickets);
 });
 
 app.get<{ Params: { id: string } }>(`${ENDPOINTS.tickets}/:id`, async (request, reply) => {
   const auth = resolveSession(request, reply);
   if (!auth) return;
   const ticket = findOwnTicket(request.params.id, auth.site.key, auth.session.reporter);
-  if (!ticket) return fail(reply, 404, 'not_found', 'Ticket not found.');
-  return toDetail(ticket);
+  if (!ticket) return fail(reply, 404, 'Ticket not found.');
+  return ok(reply, toDetail(ticket));
 });
 
 app.post<{ Params: { id: string } }>(`${ENDPOINTS.tickets}/:id/replies`, async (request, reply) => {
   const auth = resolveSession(request, reply);
   if (!auth) return;
-  if (!auth.site.config.features.replies) return fail(reply, 403, 'replies_disabled', 'Replies are turned off for this site.');
+  if (!auth.site.config.features.replies) return fail(reply, 403, 'Replies are turned off for this site.');
   const ticket = findOwnTicket(request.params.id, auth.site.key, auth.session.reporter);
-  if (!ticket) return fail(reply, 404, 'not_found', 'Ticket not found.');
-  const body = parse(ReplyRequest, request.body, reply);
+  if (!ticket) return fail(reply, 404, 'Ticket not found.');
+  const body = validate(ReplyRequest, request.body, reply);
   if (!body) return;
 
   const at = now();
-  ticket.timeline.push({ id: randomUUID(), at, kind: 'reply', author: 'reporter', message: body.message });
+  ticket.timeline.push({ id: nextId('timeline'), at, kind: 'reply', author: 'reporter', message: body.message });
   // Mirrors Planora: answering a blocker re-queues the work.
   if (ticket.status === 'blocked') {
     ticket.status = 'in_progress';
     ticket.blockers = [];
-    ticket.timeline.push({ id: randomUUID(), at, kind: 'status_changed', author: 'planora', status: 'in_progress', message: 'Thanks — work has resumed.' });
+    ticket.timeline.push({
+      id: nextId('timeline'),
+      at,
+      kind: 'status_changed',
+      author: 'planora',
+      status: 'in_progress',
+      message: 'Thanks — work has resumed.',
+    });
   }
   ticket.updatedAt = at;
   save();
-  return toDetail(ticket);
+  return ok(reply, toDetail(ticket), 201);
 });
 
 /* ------------------------------------------------------------------ */
@@ -314,19 +376,27 @@ const DEFAULT_MESSAGES: Record<z.infer<typeof TicketStatus>, string> = {
 };
 
 app.post<{ Params: { id: string } }>('/__ops/tickets/:id/transition', async (request, reply) => {
-  const ticket = db.tickets.find((t) => t.id === request.params.id);
-  if (!ticket) return fail(reply, 404, 'not_found', 'Ticket not found.');
-  const body = parse(TransitionBody, request.body, reply);
+  const ticket = db.tickets.find((t) => t.id === Number(request.params.id));
+  if (!ticket) return fail(reply, 404, 'Ticket not found.');
+  const body = validate(TransitionBody, request.body, reply);
   if (!body) return;
   const at = now();
   ticket.status = body.status;
-  ticket.blockers = body.status === 'blocked' ? (body.blockers ?? []).map((message) => ({ id: randomUUID(), message, needs_reply: true })) : [];
+  ticket.blockers =
+    body.status === 'blocked' ? (body.blockers ?? []).map((message) => ({ id: nextId('blocker'), message, needs_reply: true })) : [];
   if (body.summary !== undefined) ticket.summary = body.summary || null;
   if (body.pull_request_url !== undefined) ticket.pullRequestUrl = body.pull_request_url || null;
-  ticket.timeline.push({ id: randomUUID(), at, kind: 'status_changed', author: 'planora', status: body.status, message: body.message || DEFAULT_MESSAGES[body.status] });
+  ticket.timeline.push({
+    id: nextId('timeline'),
+    at,
+    kind: 'status_changed',
+    author: 'planora',
+    status: body.status,
+    message: body.message || DEFAULT_MESSAGES[body.status],
+  });
   ticket.updatedAt = at;
   save();
-  return toDetail(ticket);
+  return ok(reply, toDetail(ticket));
 });
 
 app.post<{ Body: { enabled?: boolean } }>('/__ops/chaos', async (request) => {
@@ -341,14 +411,14 @@ app.post('/__ops/reset', async () => {
 });
 
 app.get<{ Params: { id: string } }>('/__ops/tickets/:id/snapshot', async (request, reply) => {
-  const ticket = db.tickets.find((t) => t.id === request.params.id);
-  if (!ticket?.context?.dom_snapshot) return fail(reply, 404, 'not_found', 'No page snapshot for this ticket.');
+  const ticket = db.tickets.find((t) => t.id === Number(request.params.id));
+  if (!ticket?.context?.dom_snapshot) return fail(reply, 404, 'No page snapshot for this ticket.');
   return reply.type('text/plain').send(ticket.context.dom_snapshot);
 });
 
 app.get<{ Params: { id: string } }>('/__ops/uploads/:id', async (request, reply) => {
   const upload = db.uploads.find((u) => u.id === request.params.id);
-  if (!upload?.data) return fail(reply, 404, 'not_found', 'Upload not found.');
+  if (!upload?.data) return fail(reply, 404, 'Upload not found.');
   return reply.type(upload.contentType).send(Buffer.from(upload.data, 'base64'));
 });
 

@@ -90,7 +90,7 @@ Sites with a strict CSP need to allow `script-src https://cdn.planora.dev`, `con
 
 ```
 packages/
-  contract/   @planora/widget-contract – zod schemas + types for /widget/v1, shared with the Planora API
+  contract/   @planora/widget-contract – zod schemas + types for /api/v1/widget, shared with the Planora API
   core/       @planora/widget          – capture, redaction, transport, offline queue, Preact UI in a shadow root
   loader/     loader.js                – ~0.5 KB script-tag loader; queues calls until the core arrives
   react/      @planora/widget-react    – <PlanoraWidget/> and usePlanora()
@@ -99,7 +99,8 @@ integrations/
   laravel/    planora/laravel-widget   – @planoraWidget Blade directive, server-side user hash
 apps/
   playground/ demo sites: plain HTML, React, hostile CSS, public mode
-e2e/          Playwright tests that drive the real widget
+docs/         WIDGET_API.md – the /api/v1/widget spec for the Planora API team
+e2e/          Playwright: widget.spec.ts drives the real widget; api-contract.spec.ts is the executable API spec
 ```
 
 ## How it works
@@ -112,21 +113,34 @@ e2e/          Playwright tests that drive the real widget
 
 ## The contract with Planora
 
-All endpoints are under `/widget/v1`, defined in [packages/contract/src/index.ts](packages/contract/src/index.ts):
+All endpoints are under `/api/v1/widget` and follow Planora's own Laravel API conventions:
+- responses are wrapped in `{ "data": … }`
+- errors are `{ "message", "errors"? }`, with 422 for validation
+- ids are integers
+
+**[docs/WIDGET_API.md](docs/WIDGET_API.md) is the full spec for the Planora team.** The types live in [packages/contract/src/index.ts](packages/contract/src/index.ts).
 
 | Endpoint | Purpose |
 |---|---|
 | `GET /config` | Branding, mode (`team` / `public`), features, limits. Needs only the site key. |
 | `POST /session` | Exchanges the user plus hash (or an anonymous id) for a short-lived token |
-| `POST /uploads` | Presigned upload URLs for the screenshot and attachments |
-| `POST /tickets` | Creates a ticket (`Idempotency-Key` header). Response status is `to_do`. |
+| `POST /uploads` | Signed upload URLs for the screenshot and attachments |
+| `POST /tickets` | Creates a ticket (`Idempotency-Key` header). Returns 201, key like `SHOP-12`, status `to_do`. |
 | `GET /tickets` | The current user's tickets |
-| `GET /tickets/:id` | Detail: status, `status_label`, blockers, summary, PR URL, timeline |
-| `POST /tickets/:id/replies` | Reply to a blocker or add a comment |
+| `GET /tickets/{id}` | Detail: status, `status_label`, blockers, summary, PR URL, timeline |
+| `POST /tickets/{id}/replies` | Reply to a blocker or add a comment |
 
 The widget shows only the statuses `to_do`, `in_progress`, `blocked`, `in_review`, `shipped` and `declined`. The Planora API maps its internal job states onto these and sends its own `status_label`, so wording such as "Shipped" versus "Merged" is decided on the server, not in the widget.
 
-**To connect the real Planora API:** implement these endpoints there with `@planora/widget-contract` for validation, then point `data-api-base` (or `apiBase`) at it. The mock API in `packages/mock-api/src/server.ts` is a working reference implementation.
+**To connect the real Planora API:**
+1. Implement these endpoints in `planora/apps/api`.
+2. Run the executable spec against it until it passes:
+   ```bash
+   WIDGET_API_BASE=http://localhost:8000 WIDGET_SITE_KEY=pk_… WIDGET_SITE_SECRET=sk_… npx playwright test api-contract
+   ```
+3. Point `data-api-base` (or `apiBase`) at it.
+
+The mock API in `packages/mock-api/src/server.ts` is a working reference implementation.
 
 ## Scripts
 

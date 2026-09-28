@@ -13,7 +13,7 @@ interface SeenRecord {
  */
 export class TicketTracker {
   private record: SeenRecord;
-  private statuses = new Map<string, TicketStatus>();
+  private statuses = new Map<number, TicketStatus>();
 
   constructor(private readonly key: string) {
     this.record = storage.get<SeenRecord>(key) ?? { seen: {}, initialized: false };

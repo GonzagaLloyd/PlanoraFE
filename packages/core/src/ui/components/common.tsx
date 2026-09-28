@@ -45,7 +45,7 @@ export function TicketList({
 }: {
   tickets: TicketSummary[];
   unread: Record<string, true>;
-  onOpen: (id: string) => void;
+  onOpen: (id: number) => void;
 }) {
   return (
     <ul class="pl-tickets">

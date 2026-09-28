@@ -16,7 +16,7 @@ function safeHttpUrl(url: string | null): string | null {
   }
 }
 
-function ReplyBox({ blocked, blockerId }: { blocked: boolean; blockerId?: string }) {
+function ReplyBox({ blocked, blockerId }: { blocked: boolean; blockerId?: number }) {
   const widget = useWidget();
   const { replying } = useWidgetState();
   const [message, setMessage] = useState('');

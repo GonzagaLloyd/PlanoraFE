@@ -290,7 +290,7 @@ export class PlanoraWidget {
     }
   }
 
-  async openTicket(id: string): Promise<void> {
+  async openTicket(id: number): Promise<void> {
     if (!this.api) return;
     this.store.set({ view: 'detail', selectedId: id, detailLoading: true, detailError: null, detail: null });
     try {
@@ -304,7 +304,7 @@ export class PlanoraWidget {
     }
   }
 
-  async reply(message: string, blockerId?: string): Promise<boolean> {
+  async reply(message: string, blockerId?: number): Promise<boolean> {
     const { selectedId, replying } = this.store.state;
     if (!this.api || !selectedId || replying || !message.trim()) return false;
     this.store.set({ replying: true, detailError: null });
@@ -325,7 +325,7 @@ export class PlanoraWidget {
     if (!this.api || !config) return;
     if (config.mode === 'team' && !user) return;
     try {
-      const { tickets } = await this.api.listTickets();
+      const tickets = await this.api.listTickets();
       const sorted = [...tickets].sort((a, b) => b.updated_at.localeCompare(a.updated_at));
       const changes = this.tracker?.update(sorted) ?? [];
       this.store.set({

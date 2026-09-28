@@ -1,5 +1,9 @@
 import type { WidgetConfig } from '@planora/widget-contract';
 
+/**
+ * A widget site. In Planora this is a `widget_sites` row that also points at
+ * the organization, the project the tickets land in, and its intake column.
+ */
 export interface Site {
   key: string;
   /** Server-side secret used to verify user hashes. Never sent to the browser. */
@@ -7,6 +11,8 @@ export interface Site {
   requireUserHash: boolean;
   /** Origins allowed to use this key. '*' = any (dev only). */
   allowedOrigins: string[];
+  /** Prefix of the human-facing ticket key, e.g. SHOP → SHOP-12. */
+  ticketPrefix: string;
   config: WidgetConfig;
 }
 
@@ -27,6 +33,7 @@ export const SITES: Record<string, Site> = {
     secret: 'sk_test_demo',
     requireUserHash: false,
     allowedOrigins: ['*'],
+    ticketPrefix: 'SHOP',
     config: baseConfig,
   },
   // Team mode with identity verification (what production should use).
@@ -35,6 +42,7 @@ export const SITES: Record<string, Site> = {
     secret: 'sk_test_secure',
     requireUserHash: true,
     allowedOrigins: ['*'],
+    ticketPrefix: 'SEC',
     config: { ...baseConfig, site_name: 'Secure Demo' },
   },
   // Public mode: anonymous visitors can report.
@@ -43,6 +51,7 @@ export const SITES: Record<string, Site> = {
     secret: 'sk_test_public',
     requireUserHash: false,
     allowedOrigins: ['*'],
+    ticketPrefix: 'PUB',
     config: {
       ...baseConfig,
       site_name: 'Public Demo',
@@ -56,6 +65,7 @@ export const SITES: Record<string, Site> = {
     secret: 'sk_test_disabled',
     requireUserHash: false,
     allowedOrigins: ['*'],
+    ticketPrefix: 'OFF',
     config: { ...baseConfig, enabled: false },
   },
 };

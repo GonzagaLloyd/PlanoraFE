@@ -41,11 +41,11 @@ describe('Outbox', () => {
 });
 
 describe('TicketTracker', () => {
-  const ticket = (id: string, status: TicketSummary['status'], updated: string): TicketSummary => ({
+  const ticket = (id: number, status: TicketSummary['status'], updated: string): TicketSummary => ({
     id,
-    key: `PLN-${id}`,
+    key: `SHOP-${id}`,
     type: 'bug',
-    title: id,
+    title: `Ticket ${id}`,
     status,
     status_label: status,
     created_at: '2026-09-01T00:00:00Z',
@@ -54,15 +54,15 @@ describe('TicketTracker', () => {
 
   it('does not flag existing history as unread on first run', () => {
     const tracker = new TicketTracker('test:seen');
-    const tickets = [ticket('1', 'to_do', '2026-09-01T10:00:00Z')];
+    const tickets = [ticket(1, 'to_do', '2026-09-01T10:00:00Z')];
     tracker.update(tickets);
     expect(tracker.unread(tickets)).toEqual({});
   });
 
   it('flags newer updates and reports status changes', () => {
     const tracker = new TicketTracker('test:seen');
-    tracker.update([ticket('1', 'to_do', '2026-09-01T10:00:00Z')]);
-    const next = [ticket('1', 'blocked', '2026-09-01T11:00:00Z')];
+    tracker.update([ticket(1, 'to_do', '2026-09-01T10:00:00Z')]);
+    const next = [ticket(1, 'blocked', '2026-09-01T11:00:00Z')];
     expect(tracker.update(next)).toEqual([{ ticket: next[0], previous: 'to_do' }]);
     expect(tracker.unread(next)).toEqual({ '1': true });
     tracker.markSeen(next[0]!);
@@ -70,8 +70,8 @@ describe('TicketTracker', () => {
   });
 
   it('remembers what was seen across page loads', () => {
-    new TicketTracker('test:seen').update([ticket('1', 'to_do', '2026-09-01T10:00:00Z')]);
+    new TicketTracker('test:seen').update([ticket(1, 'to_do', '2026-09-01T10:00:00Z')]);
     const reloaded = new TicketTracker('test:seen');
-    expect(reloaded.unread([ticket('1', 'shipped', '2026-09-02T10:00:00Z')])).toEqual({ '1': true });
+    expect(reloaded.unread([ticket(1, 'shipped', '2026-09-02T10:00:00Z')])).toEqual({ '1': true });
   });
 });

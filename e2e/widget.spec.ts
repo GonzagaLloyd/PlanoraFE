@@ -15,7 +15,7 @@ async function openGeneratedPage(page: Page, name: string, head: string) {
 }
 
 interface OpsTicket {
-  id: string;
+  id: number;
   key: string;
   status: string;
   title: string;
@@ -93,7 +93,7 @@ test('script-tag install: captures context, redacts secrets, files a ticket', as
 
   await panel(page).getByRole('button', { name: 'Send report' }).click();
   await expect(panel(page).getByRole('heading', { name: 'Report sent' })).toBeVisible();
-  await expect(panel(page).getByText(/PLN-\d+ is now in To Do/)).toBeVisible();
+  await expect(panel(page).getByText('SHOP-1 is now in To Do')).toBeVisible();
   await page.screenshot({ path: `${SHOTS}/04-sent.png` });
 
   const { tickets } = await opsState(page);
@@ -212,7 +212,7 @@ test('React: team mode hides the bubble when logged out and isolates users', asy
   await expect(launcher(page)).toBeVisible();
   await fileReport(page, 'Ana ticket', 'Filed by Ana.');
   await expect(panel(page).getByRole('heading', { name: 'Report sent' })).toBeVisible();
-  await expect(page.getByText(/Created PLN-\d+: Ana ticket/)).toBeVisible();
+  await expect(page.getByText('Created SHOP-1: Ana ticket')).toBeVisible();
   await panel(page).getByRole('button', { name: 'Done' }).click();
 
   await page.getByLabel('Current user').selectOption('');

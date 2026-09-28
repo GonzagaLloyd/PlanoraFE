@@ -10,7 +10,9 @@ export interface Reporter {
 }
 
 export interface StoredTicket {
-  id: string;
+  /** Integer ids, like every Planora table. */
+  id: number;
+  /** Site prefix + per-site number, e.g. SHOP-12. */
   key: string;
   siteKey: string;
   reporter: Reporter;
@@ -41,14 +43,23 @@ export interface StoredUpload {
 }
 
 interface Data {
-  counter: number;
+  /** Auto-increment sequences, like Postgres serial columns. */
+  sequences: { ticket: number; timeline: number; blocker: number };
+  /** Next ticket number per site, for the human-facing key. */
+  siteNumbers: Record<string, number>;
   tickets: StoredTicket[];
   uploads: StoredUpload[];
-  idempotency: Record<string, string>;
+  /** "siteKey:Idempotency-Key" → ticket id */
+  idempotency: Record<string, number>;
 }
 
 const here = dirname(fileURLToPath(import.meta.url));
-const FILE = resolve(here, '../.data/db.json');
+// Versioned file name: data written by an older shape is ignored rather than misread.
+const FILE = resolve(here, '../.data/db.v2.json');
+
+function empty(): Data {
+  return { sequences: { ticket: 0, timeline: 0, blocker: 0 }, siteNumbers: {}, tickets: [], uploads: [], idempotency: {} };
+}
 
 function load(): Data {
   try {
@@ -56,10 +67,21 @@ function load(): Data {
   } catch {
     /* start fresh */
   }
-  return { counter: 100, tickets: [], uploads: [], idempotency: {} };
+  return empty();
 }
 
 export const db: Data = load();
+
+export function nextId(sequence: keyof Data['sequences']): number {
+  db.sequences[sequence] += 1;
+  return db.sequences[sequence];
+}
+
+export function nextTicketKey(siteKey: string, prefix: string): string {
+  const number = (db.siteNumbers[siteKey] ?? 0) + 1;
+  db.siteNumbers[siteKey] = number;
+  return `${prefix}-${number}`;
+}
 
 let saveTimer: NodeJS.Timeout | null = null;
 export function save(): void {
@@ -72,10 +94,7 @@ export function save(): void {
 }
 
 export function reset(): void {
-  db.counter = 100;
-  db.tickets = [];
-  db.uploads = [];
-  db.idempotency = {};
+  Object.assign(db, empty());
   save();
 }
 

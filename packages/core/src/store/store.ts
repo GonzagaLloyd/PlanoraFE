@@ -31,7 +31,7 @@ export interface WidgetState {
   tickets: TicketSummary[];
   ticketsLoaded: boolean;
   ticketsError: string | null;
-  selectedId: string | null;
+  selectedId: number | null;
   detail: TicketDetail | null;
   detailLoading: boolean;
   detailError: string | null;

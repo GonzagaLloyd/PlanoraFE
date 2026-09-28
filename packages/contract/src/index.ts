@@ -1,9 +1,16 @@
 /**
- * The contract between the Planora widget and the Planora API (/widget/v1).
+ * The contract between the Planora widget and the Planora API (/api/v1/widget).
  *
- * Both sides import these schemas: the widget uses the types, the API (and the
- * mock API) validates request bodies with the zod schemas. Changing a schema
- * here is a breaking change for both sides — bump WIDGET_API_VERSION.
+ * It follows Planora's own API conventions so the Laravel implementation needs
+ * no special cases:
+ *   - success bodies are wrapped: `{ "data": … }` (JsonResource default)
+ *   - errors are Laravel's default: `{ "message": "…", "errors"?: { field: ["…"] } }`,
+ *     with 422 for validation failures
+ *   - ids are integers, timestamps are ISO-8601 strings, fields are snake_case
+ *
+ * The widget uses the types; the mock API validates request bodies with the
+ * zod schemas. docs/WIDGET_API.md describes every endpoint for the API team.
+ * Changing a schema here is a breaking change for both sides.
  */
 import { z } from 'zod';
 
@@ -100,16 +107,22 @@ export const UploadRequest = z.object({
 });
 export type UploadRequest = z.infer<typeof UploadRequest>;
 
-export const UploadResponse = z.object({
-  uploads: z.array(
-    z.object({
-      id: z.string(),
-      upload_url: z.string(),
-      method: z.literal('PUT'),
-      headers: z.record(z.string(), z.string()),
-    }),
-  ),
+/**
+ * One entry per requested file, in the same order. `upload_url` is a signed,
+ * short-lived URL (Laravel URL::temporarySignedRoute today, an S3 presigned URL
+ * later): the browser PUTs the raw file to it with `headers` and no auth header.
+ * `id` is opaque and is sent back in CreateTicketRequest.
+ */
+export const Upload = z.object({
+  id: z.string(),
+  upload_url: z.string(),
+  method: z.literal('PUT'),
+  headers: z.record(z.string(), z.string()),
+  expires_at: z.string(),
 });
+export type Upload = z.infer<typeof Upload>;
+
+export const UploadResponse = z.array(Upload);
 export type UploadResponse = z.infer<typeof UploadResponse>;
 
 /* ------------------------------------------------------------------ */
@@ -186,7 +199,7 @@ export const CreateTicketRequest = z.object({
 export type CreateTicketRequest = z.infer<typeof CreateTicketRequest>;
 
 export const Blocker = z.object({
-  id: z.string(),
+  id: z.number().int(),
   /** Plain-language reason or question, safe to show the reporter. */
   message: z.string(),
   /** True when Planora needs a reply before it can continue. */
@@ -195,7 +208,8 @@ export const Blocker = z.object({
 export type Blocker = z.infer<typeof Blocker>;
 
 export const TicketSummary = z.object({
-  id: z.string(),
+  id: z.number().int(),
+  /** Human-facing reference, e.g. `SHOP-12`: the site's ticket prefix + a per-site number. */
   key: z.string(),
   type: TicketType,
   title: z.string(),
@@ -207,7 +221,7 @@ export const TicketSummary = z.object({
 export type TicketSummary = z.infer<typeof TicketSummary>;
 
 export const TimelineEntry = z.object({
-  id: z.string(),
+  id: z.number().int(),
   at: z.string(),
   kind: z.enum(['created', 'status_changed', 'reply', 'note']),
   /** Who produced the entry. `planora` = the Planora team or pipeline. */
@@ -230,22 +244,32 @@ export type TicketDetail = z.infer<typeof TicketDetail>;
 export const CreateTicketResponse = TicketSummary;
 export type CreateTicketResponse = z.infer<typeof CreateTicketResponse>;
 
-export const ListTicketsResponse = z.object({
-  tickets: z.array(TicketSummary),
-  server_time: z.string(),
-});
+export const ListTicketsResponse = z.array(TicketSummary);
 export type ListTicketsResponse = z.infer<typeof ListTicketsResponse>;
 
 export const ReplyRequest = z.object({
   message: z.string().min(1).max(5_000),
-  blocker_id: z.string().optional(),
+  blocker_id: z.number().int().optional(),
 });
 export type ReplyRequest = z.infer<typeof ReplyRequest>;
 
+/* ------------------------------------------------------------------ */
+/* Envelopes                                                           */
+/* ------------------------------------------------------------------ */
+
+/** Every successful response body: Laravel's JsonResource wrapper. */
+export interface DataResponse<T> {
+  data: T;
+}
+
+export function dataResponse<T extends z.ZodType>(schema: T) {
+  return z.object({ data: schema });
+}
+
+/** Laravel's default error body (abort(), validation, auth). */
 export const ApiError = z.object({
-  error: z.object({
-    code: z.string(),
-    message: z.string(),
-  }),
+  message: z.string(),
+  /** Present on 422: field name → messages. */
+  errors: z.record(z.string(), z.array(z.string())).optional(),
 });
 export type ApiError = z.infer<typeof ApiError>;

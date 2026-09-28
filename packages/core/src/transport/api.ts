@@ -1,6 +1,8 @@
 import type {
+  ApiError,
   CreateTicketRequest,
   CreateTicketResponse,
+  DataResponse,
   ListTicketsResponse,
   ReplyRequest,
   SessionRequest,
@@ -23,6 +25,8 @@ export class ApiRequestError extends Error {
     readonly status: number,
     readonly code: string,
     message: string,
+    /** Laravel's validation errors (422): field name → messages. */
+    readonly fieldErrors: Record<string, string[]> = {},
   ) {
     super(message);
     this.name = 'ApiRequestError';
@@ -78,11 +82,11 @@ export class ApiClient {
     return this.request('GET', `${ENDPOINTS.tickets}${query}`);
   }
 
-  getTicket(id: string): Promise<TicketDetail> {
+  getTicket(id: number): Promise<TicketDetail> {
     return this.request('GET', ENDPOINTS.ticket(id));
   }
 
-  reply(id: string, body: ReplyRequest): Promise<TicketDetail> {
+  reply(id: number, body: ReplyRequest): Promise<TicketDetail> {
     return this.request('POST', ENDPOINTS.replies(id), { body });
   }
 
@@ -121,34 +125,60 @@ export class ApiClient {
       return this.request<T>(method, path, options, true);
     }
 
-    if (!response.ok) {
-      let code = 'http_error';
-      let message = `Request failed (${response.status})`;
-      try {
-        const data = (await response.json()) as { error?: { code?: string; message?: string } };
-        code = data.error?.code ?? code;
-        message = data.error?.message ?? message;
-      } catch {
-        /* non-JSON error body */
-      }
-      throw new ApiRequestError(response.status, code, message);
-    }
+    if (!response.ok) throw await toApiError(response);
 
     if (response.status === 204) return undefined as T;
-    return (await response.json()) as T;
+    // Planora wraps every resource in { data: … } (Laravel JsonResource).
+    const body = (await response.json()) as DataResponse<T>;
+    return body.data;
   }
 
   private async rawFetch(url: string, init: RequestInit): Promise<Response> {
-    if (!nativeFetch) throw new ApiRequestError(0, 'no_fetch', 'fetch is not available in this browser');
-    const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
-    const timer = controller ? setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS) : null;
-    try {
-      return await nativeFetch(url, { ...init, signal: controller?.signal, credentials: 'omit', mode: 'cors' });
-    } catch (error) {
-      const aborted = error instanceof DOMException && error.name === 'AbortError';
-      throw new ApiRequestError(0, aborted ? 'timeout' : 'network', aborted ? 'The request timed out' : 'Network error');
-    } finally {
-      if (timer) clearTimeout(timer);
+    return rawFetch(url, init);
+  }
+}
+
+const CODES: Record<number, string> = {
+  401: 'unauthenticated',
+  403: 'forbidden',
+  404: 'not_found',
+  413: 'too_large',
+  422: 'validation_error',
+  429: 'rate_limited',
+};
+
+/**
+ * Reads Laravel's error body: `{ message, errors? }`. For validation errors the
+ * first field message is more useful to a person than the generic summary.
+ */
+async function toApiError(response: Response): Promise<ApiRequestError> {
+  let message = `Request failed (${response.status})`;
+  let fieldErrors: Record<string, string[]> = {};
+  try {
+    const body = (await response.json()) as Partial<ApiError>;
+    if (body.message) message = body.message;
+    if (body.errors) {
+      fieldErrors = body.errors;
+      const first = Object.values(body.errors)[0]?.[0];
+      if (first) message = first;
     }
+  } catch {
+    /* non-JSON error body, e.g. a proxy's HTML error page */
+  }
+  const code = CODES[response.status] ?? (response.status >= 500 ? 'server_error' : 'http_error');
+  return new ApiRequestError(response.status, code, message, fieldErrors);
+}
+
+async function rawFetch(url: string, init: RequestInit): Promise<Response> {
+  if (!nativeFetch) throw new ApiRequestError(0, 'no_fetch', 'fetch is not available in this browser');
+  const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+  const timer = controller ? setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS) : null;
+  try {
+    return await nativeFetch(url, { ...init, signal: controller?.signal, credentials: 'omit', mode: 'cors' });
+  } catch (error) {
+    const aborted = error instanceof DOMException && error.name === 'AbortError';
+    throw new ApiRequestError(0, aborted ? 'timeout' : 'network', aborted ? 'The request timed out' : 'Network error');
+  } finally {
+    if (timer) clearTimeout(timer);
   }
 }

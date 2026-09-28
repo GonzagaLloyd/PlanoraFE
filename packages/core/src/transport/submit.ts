@@ -91,7 +91,7 @@ export class Submitter {
     const attachmentIds: string[] = [];
 
     if (files.length > 0) {
-      const { uploads } = await withRetry(
+      const uploads = await withRetry(
         () =>
           this.api.requestUploads({
             files: files.map((file) => ({ name: file.name, content_type: file.type, size: file.blob.size, kind: file.kind })),
