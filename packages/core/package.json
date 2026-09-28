@@ -2,7 +2,24 @@
   "name": "@planora/widget",
   "version": "0.1.0",
   "description": "Planora widget core: capture, report and track bugs and feature requests from any website.",
+  "keywords": [
+    "planora",
+    "widget",
+    "bug-report",
+    "feedback",
+    "feature-request",
+    "screenshot"
+  ],
   "license": "MIT",
+  "homepage": "https://github.com/GonzagaLloyd/PlanoraFE/tree/main/packages/core#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/GonzagaLloyd/PlanoraFE.git",
+    "directory": "packages/core"
+  },
+  "bugs": {
+    "url": "https://github.com/GonzagaLloyd/PlanoraFE/issues"
+  },
   "type": "module",
   "main": "./dist/index.js",
   "module": "./dist/index.js",
@@ -14,7 +31,8 @@
     }
   },
   "files": [
-    "dist"
+    "dist",
+    "README.md"
   ],
   "sideEffects": [
     "./dist/widget.js"
@@ -24,8 +42,14 @@
     "dev": "vite build --watch --mode development"
   },
   "dependencies": {
-    "@planora/widget-contract": "0.1.0",
-    "modern-screenshot": "^4.7.0",
-    "preact": "^10.29.8"
+    "@planora/widget-contract": "^0.1.0"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "devDependencies": {
+    "preact": "^10.29.8",
+    "modern-screenshot": "^4.7.0"
   }
 }

@@ -1,8 +1,24 @@
 {
   "name": "@planora/widget-contract",
   "version": "0.1.0",
-  "description": "Shared schemas and types for the Planora widget API (/widget/v1).",
+  "description": "Shared schemas and TypeScript types for the Planora widget API (/api/v1/widget).",
+  "keywords": [
+    "planora",
+    "widget",
+    "bug-report",
+    "schema",
+    "zod"
+  ],
   "license": "MIT",
+  "homepage": "https://github.com/GonzagaLloyd/PlanoraFE/tree/main/packages/contract#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/GonzagaLloyd/PlanoraFE.git",
+    "directory": "packages/contract"
+  },
+  "bugs": {
+    "url": "https://github.com/GonzagaLloyd/PlanoraFE/issues"
+  },
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -17,7 +33,8 @@
     }
   },
   "files": [
-    "dist"
+    "dist",
+    "README.md"
   ],
   "sideEffects": false,
   "scripts": {
@@ -25,5 +42,9 @@
   },
   "dependencies": {
     "zod": "^4.6.5"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
   }
 }

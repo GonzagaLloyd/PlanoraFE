@@ -1,0 +1,52 @@
+name: Release
+
+# Publishes @planora/widget-contract, @planora/widget and @planora/widget-react
+# to npm. Off until the repository variable RELEASE_ENABLED is set to "true"
+# (Settings → Secrets and variables → Actions → Variables). See docs/RELEASING.md.
+#
+# On every push to main:
+#   - changesets waiting in .changeset/  → opens or updates a "Version packages" PR
+#   - no changesets, versions not on npm → builds and publishes them
+
+on:
+  push:
+    branches: [main]
+
+concurrency: release-${{ github.ref }}
+
+jobs:
+  release:
+    if: vars.RELEASE_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write # push version commits and tags
+      pull-requests: write # open the "Version packages" PR
+      id-token: write # npm provenance: links each published version to this workflow run
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          registry-url: https://registry.npmjs.org
+
+      - run: npm ci
+
+      # Never publish something that fails the checks CI runs.
+      - run: npm run build
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run size
+
+      - uses: changesets/action@v1
+        with:
+          version: npm run version-packages
+          publish: npm run release
+          title: 'Version packages'
+          commit: 'Version packages'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

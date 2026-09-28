@@ -2,7 +2,24 @@
   "name": "@planora/widget-react",
   "version": "0.1.0",
   "description": "React bindings for the Planora widget.",
+  "keywords": [
+    "planora",
+    "widget",
+    "bug-report",
+    "feedback",
+    "react",
+    "nextjs"
+  ],
   "license": "MIT",
+  "homepage": "https://github.com/GonzagaLloyd/PlanoraFE/tree/main/packages/react#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/GonzagaLloyd/PlanoraFE.git",
+    "directory": "packages/react"
+  },
+  "bugs": {
+    "url": "https://github.com/GonzagaLloyd/PlanoraFE/issues"
+  },
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -12,15 +29,22 @@
       "import": "./dist/index.js"
     }
   },
-  "files": ["dist"],
+  "files": [
+    "dist",
+    "README.md"
+  ],
   "sideEffects": false,
   "scripts": {
     "build": "tsc -p tsconfig.json"
   },
   "dependencies": {
-    "@planora/widget": "0.1.0"
+    "@planora/widget": "^0.1.0"
   },
   "peerDependencies": {
     "react": ">=17"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
   }
 }

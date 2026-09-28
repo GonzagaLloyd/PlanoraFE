@@ -19,9 +19,14 @@
     "size": "node scripts/check-size.mjs",
     "e2e": "playwright test",
     "test:php": "php integrations/laravel/tests/render_test.php",
-    "check": "npm run build && npm run typecheck && npm test && npm run test:php && npm run size"
+    "check": "npm run build && npm run typecheck && npm test && npm run test:php && npm run size",
+    "changeset": "changeset",
+    "version-packages": "changeset version",
+    "release:dry-run": "npm run build && npm pack --dry-run -w @planora/widget-contract -w @planora/widget -w @planora/widget-react",
+    "release": "npm run build && changeset publish"
   },
   "devDependencies": {
+    "@changesets/cli": "^3.0.3",
     "@playwright/test": "^1.63.0",
     "@types/node": "^26.6.2",
     "@types/react": "^19.3.0",

@@ -154,3 +154,9 @@ The mock API in `packages/mock-api/src/server.ts` is a working reference impleme
 | `npm run e2e` | Playwright tests in the real browser. Uses installed Edge locally; set `PW_CHANNEL=chrome` for Chrome. |
 | `npm run size` | Bundle budgets: loader ≤ 3 KB, core ≤ 40 KB, screenshot ≤ 15 KB (gzipped) |
 | `npm run check` | Everything above except e2e |
+| `npx changeset` | Describe a change for the next npm release |
+| `npm run release:dry-run` | Build and list exactly what each package would publish, without publishing |
+
+## Releasing
+
+The npm packages are published by GitHub Actions with changesets. [docs/RELEASING.md](docs/RELEASING.md) walks through the one-time npm and GitHub setup, the first release, and the routine for every release after that.
