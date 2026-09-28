@@ -30,7 +30,7 @@ The widget is one JavaScript core. Each install method is a thin wrapper that pu
 </script>
 ```
 
-Optional loader attributes: `data-api-base`, `data-position="bottom-left"`, `data-color="#0f766e"`, `data-label`, `data-hide-launcher`.
+Optional loader attributes: `data-api-base`, `data-position="bottom-left"`, `data-label`, `data-hide-launcher`.
 
 **npm (any bundler):**
 

@@ -53,7 +53,7 @@ Site key only, no session. The widget uses this to decide whether to show the bu
   "enabled": true,
   "site_name": "Demo Shop",
   "mode": "team",
-  "branding": { "primary_color": "#C94A16", "launcher_label": "Report an issue", "position": "bottom-right" },
+  "branding": { "launcher_label": "Report an issue", "position": "bottom-right" },
   "features": { "screenshot": true, "attachments": true, "replies": true },
   "limits": { "max_attachments": 5, "max_attachment_bytes": 10485760 }
 } }

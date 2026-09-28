@@ -20,7 +20,7 @@ const baseConfig: WidgetConfig = {
   enabled: true,
   site_name: 'Demo Shop',
   mode: 'team',
-  branding: { primary_color: '#C94A16', launcher_label: 'Report an issue', position: 'bottom-right' },
+  branding: { launcher_label: 'Report an issue', position: 'bottom-right' },
   features: { screenshot: true, attachments: true, replies: true },
   limits: { max_attachments: 5, max_attachment_bytes: 10 * 1024 * 1024 },
 };
@@ -56,7 +56,7 @@ export const SITES: Record<string, Site> = {
       ...baseConfig,
       site_name: 'Public Demo',
       mode: 'public',
-      branding: { primary_color: '#0F766E', launcher_label: 'Send feedback', position: 'bottom-left' },
+      branding: { launcher_label: 'Send feedback', position: 'bottom-left' },
     },
   },
   // Disabled site: the widget must stay hidden.

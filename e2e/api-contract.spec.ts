@@ -54,7 +54,7 @@ test.describe('widget API contract', () => {
     expect(res.status()).toBe(200);
     const { data } = await res.json();
     expect(data).toMatchObject({ enabled: expect.any(Boolean), mode: expect.stringMatching(/^(team|public)$/) });
-    expect(data.branding).toMatchObject({ primary_color: expect.any(String), position: expect.any(String) });
+    expect(data.branding).toMatchObject({ launcher_label: expect.any(String), position: expect.any(String) });
   });
 
   test('unknown site key: 401 with a Laravel error body', async ({ request }) => {

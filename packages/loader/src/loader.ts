@@ -9,7 +9,7 @@
  * Calls made before widget.js arrives are queued and replayed.
  *
  * Optional attributes: data-api-base, data-position ("bottom-left"),
- * data-color ("#0f766e"), data-label, data-hide-launcher, data-src (widget URL).
+ * data-label, data-hide-launcher, data-src (widget URL).
  */
 type Stub = ((...args: unknown[]) => void) & { q?: unknown[][]; loaded?: boolean };
 
@@ -31,11 +31,9 @@ type Stub = ((...args: unknown[]) => void) & { q?: unknown[][]; loaded?: boolean
     const options: Record<string, unknown> = { siteKey };
     const apiBase = attr('api-base');
     const position = attr('position');
-    const color = attr('color');
     const label = attr('label');
     if (apiBase) options.apiBase = apiBase;
     if (position === 'bottom-left' || position === 'bottom-right') options.position = position;
-    if (color) options.primaryColor = color;
     if (label) options.launcherLabel = label;
     if (script.hasAttribute('data-hide-launcher')) options.hideLauncher = true;
     w.Planora('init', options);

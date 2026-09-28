@@ -38,7 +38,7 @@ php artisan vendor:publish --tag=planora-config
 | `secret` | `PLANORA_SECRET` | — |
 | `api_base` | `PLANORA_API_BASE` | `https://api.planora.dev` |
 | `cdn_url` | `PLANORA_CDN_URL` | `https://cdn.planora.dev/widget/v1` |
-| `position` / `color` / `label` | `PLANORA_POSITION` / `PLANORA_COLOR` / `PLANORA_LABEL` | dashboard branding |
+| `position` / `label` | `PLANORA_POSITION` / `PLANORA_LABEL` | the site's settings in Planora |
 | `guard` | `PLANORA_GUARD` | default guard |
 | `user_fields` | — | `['name' => 'name', 'email' => 'email']` |
 

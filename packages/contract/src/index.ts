@@ -72,7 +72,6 @@ export const WidgetConfig = z.object({
   site_name: z.string(),
   mode: WidgetMode,
   branding: z.object({
-    primary_color: z.string(),
     launcher_label: z.string(),
     position: z.enum(['bottom-right', 'bottom-left']),
   }),

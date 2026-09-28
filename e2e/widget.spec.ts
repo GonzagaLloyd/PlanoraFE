@@ -49,7 +49,7 @@ const panel = (page: Page) => page.locator('#planora-widget .pl-panel');
 async function fileReport(page: Page, title: string, description: string) {
   await launcher(page).click();
   await panel(page).getByRole('button', { name: /Report a bug/ }).click();
-  await panel(page).getByLabel('Short summary').fill(title);
+  await panel(page).getByLabel('Summary', { exact: true }).fill(title);
   await panel(page).getByLabel('What happened?').fill(description);
   await panel(page).getByRole('button', { name: 'Review' }).click();
   await panel(page).getByRole('button', { name: 'Send report' }).click();
@@ -81,9 +81,9 @@ test('script-tag install: captures context, redacts secrets, files a ticket', as
   await panel(page).getByRole('button', { name: 'Review' }).click();
   await expect(panel(page).getByText('Please add a short summary')).toBeVisible();
 
-  await panel(page).getByLabel('Short summary').fill('Checkout button does nothing');
+  await panel(page).getByLabel('Summary', { exact: true }).fill('Checkout button does nothing');
   await panel(page).getByLabel('What happened?').fill('I click "Place order" and nothing happens. Expected the confirmation page.');
-  await expect(panel(page).locator('.pl-shot img')).toBeVisible({ timeout: 8000 });
+  await expect(panel(page).locator('.pl-tile-shot img')).toBeVisible({ timeout: 8000 });
   await expect(panel(page).getByText(/errors?/).first()).toBeVisible();
   await page.screenshot({ path: `${SHOTS}/02-report.png` });
 
@@ -192,13 +192,13 @@ test('offline: report is queued, then sent after reload', async ({ page, request
   expect((await opsState(page)).tickets[0]!.title).toBe('Queued while offline');
 });
 
-test('public mode: anonymous visitor, custom branding on the left', async ({ page }) => {
+test('public mode: anonymous visitor, bubble on the left, same design as every site', async ({ page }) => {
   await page.goto('/public.html');
   const button = launcher(page);
   await expect(button).toBeVisible();
   const box = await button.boundingBox();
   expect(box!.x).toBeLessThan(200);
-  await expect(button).toHaveCSS('background-color', 'rgb(15, 118, 110)');
+  await expect(button).toHaveCSS('background-color', LIGHT.primary);
 
   await fileReport(page, 'Typo on the homepage', 'The banner says "Autum" instead of "Autumn".');
   await expect(panel(page).getByRole('heading', { name: 'Report sent' })).toBeVisible();
@@ -240,7 +240,8 @@ test('hostile CSS does not leak into the widget', async ({ page }) => {
   expect(style.font).not.toContain('Comic Sans');
   expect(style.spacing).toBe('normal');
   expect(style.transform).toBe('none');
-  await expect(launcher(page)).toHaveCSS('background-color', 'rgb(124, 58, 237)');
+  await page.mouse.move(10, 10); // off the launcher, so we read its resting colour, not hover
+  await expect(launcher(page)).toHaveCSS('background-color', LIGHT.primary);
   await expect(launcher(page).locator('svg')).toBeVisible();
   // Widget sits above the page's z-index: 999999 banner.
   const hit = await page.evaluate(() => {
@@ -281,12 +282,99 @@ test('forged user hash is rejected', async ({ page }) => {
   );
   await launcher(page).click();
   await panel(page).getByRole('button', { name: /Report a bug/ }).click();
-  await panel(page).getByLabel('Short summary').fill('Pretending to be someone');
+  await panel(page).getByLabel('Summary', { exact: true }).fill('Pretending to be someone');
   await panel(page).getByLabel('What happened?').fill('Should be refused.');
   await panel(page).getByRole('button', { name: 'Review' }).click();
   await panel(page).getByRole('button', { name: 'Send report' }).click();
   await expect(panel(page).getByRole('alert')).toContainText('user hash does not match');
   expect((await opsState(page)).tickets).toHaveLength(0);
+});
+
+test('attachments: screenshot and images share one row of thumbnails', async ({ page }) => {
+  await page.goto('/plain.html');
+  await launcher(page).click();
+  await panel(page).getByRole('button', { name: /Report a bug/ }).click();
+  await panel(page).getByLabel('Summary', { exact: true }).fill('Broken hero image');
+  await panel(page).getByLabel('What happened?').fill('The banner image does not load.');
+
+  // Screenshot tile appears once captured, and can be removed and added back.
+  await expect(panel(page).locator('.pl-tile-shot img')).toBeVisible({ timeout: 8000 });
+  await panel(page).getByRole('button', { name: 'Remove screenshot' }).click();
+  await expect(panel(page).locator('.pl-tile-shot')).toHaveCount(0);
+  await panel(page).getByRole('button', { name: 'Screenshot' }).click();
+  await expect(panel(page).locator('.pl-tile-shot img')).toBeVisible();
+
+  // Adding an image shows its preview as a tile.
+  const png = Buffer.from(
+    'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
+    'base64',
+  );
+  await panel(page).locator('#pl-files').setInputFiles({ name: 'banner.png', mimeType: 'image/png', buffer: png });
+  await expect(panel(page).locator('.pl-tile img[alt="banner.png"]')).toBeVisible();
+  await panel(page).locator('.pl-tiles').screenshot({ path: `${SHOTS}/15-tiles.png` });
+
+  await panel(page).getByRole('button', { name: 'Review' }).click();
+  await panel(page).getByRole('button', { name: 'Send report' }).click();
+  await expect(panel(page).getByRole('heading', { name: 'Report sent' })).toBeVisible();
+  const [ticket] = (await opsState(page)).tickets;
+  expect(ticket!.screenshotId).toBeTruthy();
+  expect(ticket!.attachmentIds).toHaveLength(1);
+});
+
+test.describe('short window', () => {
+  test.use({ viewport: { width: 1280, height: 600 } });
+
+  test('panel scrolls without showing a scrollbar', async ({ page }) => {
+    await page.goto('/plain.html');
+    await launcher(page).click();
+    await panel(page).getByRole('button', { name: /Report a bug/ }).click();
+    const body = panel(page).locator('.pl-body');
+
+    const metrics = await body.evaluate((el) => ({
+      overflows: el.scrollHeight > el.clientHeight,
+      scrollbarWidth: (el as HTMLElement).offsetWidth - el.clientWidth,
+    }));
+    expect(metrics.overflows).toBe(true); // there is something to scroll…
+    expect(metrics.scrollbarWidth).toBe(0); // …but no visible scrollbar
+
+    await body.hover();
+    await page.mouse.wheel(0, 400);
+    await expect.poll(() => body.evaluate((el) => el.scrollTop)).toBeGreaterThan(0);
+    await expect(panel(page).getByRole('switch', { name: /Include technical details/ })).toBeInViewport();
+    // The host page must not scroll along with the panel.
+    expect(await page.evaluate(() => window.scrollY)).toBe(0);
+  });
+});
+
+/** The widget's fixed palette (see :host in styles.css). */
+const LIGHT = { primary: 'rgb(24, 24, 27)', bg: 'rgb(255, 255, 255)' };
+const DARK = { primary: 'rgb(250, 250, 250)', bg: 'rgb(24, 24, 27)' };
+
+test('one design: focused fields get a plain border, no glow', async ({ page }) => {
+  await page.goto('/plain.html');
+  await launcher(page).click();
+  await panel(page).getByRole('button', { name: /Report a bug/ }).click();
+  const field = panel(page).getByLabel('Summary', { exact: true });
+  await field.focus();
+  await expect(field).toHaveCSS('box-shadow', 'none');
+  await expect(field).toHaveCSS('border-top-color', LIGHT.primary);
+  await expect(panel(page)).toHaveCSS('background-color', LIGHT.bg);
+  await expect(panel(page).getByRole('button', { name: 'Review' })).toHaveCSS('background-color', LIGHT.primary);
+  await page.screenshot({ path: `${SHOTS}/13-light.png` });
+});
+
+test.describe('dark mode', () => {
+  test.use({ colorScheme: 'dark' });
+
+  test('follows the system setting with the matching dark palette', async ({ page }) => {
+    await page.goto('/plain.html');
+    await expect(launcher(page)).toHaveCSS('background-color', DARK.primary);
+    await launcher(page).click();
+    await expect(panel(page)).toHaveCSS('background-color', DARK.bg);
+    await panel(page).getByRole('button', { name: /Report a bug/ }).click();
+    await expect(panel(page).getByRole('button', { name: 'Review' })).toHaveCSS('background-color', DARK.primary);
+    await page.screenshot({ path: `${SHOTS}/14-dark.png` });
+  });
 });
 
 /** Offset between the centre of each choice icon and the centre of its box, in px. */
@@ -337,7 +425,7 @@ test.describe('phone layout', () => {
 
     await panel(page).getByRole('button', { name: /Report a bug/ }).click();
     expect(await overflows()).toBeLessThanOrEqual(0);
-    await expect(panel(page).getByLabel('Short summary')).toHaveCSS('font-size', '16px');
+    await expect(panel(page).getByLabel('Summary', { exact: true })).toHaveCSS('font-size', '16px');
     await page.screenshot({ path: `${SHOTS}/12-mobile-report.png` });
 
     await panel(page).getByRole('button', { name: 'Close' }).click();

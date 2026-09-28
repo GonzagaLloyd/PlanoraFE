@@ -41,7 +41,6 @@ final class WidgetRenderer
             'data-site-key' => (string) $this->config['site_key'],
             'data-api-base' => (string) ($this->config['api_base'] ?? ''),
             'data-position' => $this->config['position'] ?? null,
-            'data-color' => $this->config['color'] ?? null,
             'data-label' => $this->config['label'] ?? null,
             'nonce' => $nonce,
         ];

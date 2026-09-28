@@ -23,10 +23,10 @@ return [
     'cdn_url' => env('PLANORA_CDN_URL', 'https://cdn.planora.dev/widget/v1'),
 
     /*
-    | Optional overrides of the branding set in the Planora dashboard.
+    | Optional overrides of the site settings in Planora. The widget's look is
+    | fixed (light and dark); only placement and the launcher label change.
     */
     'position' => env('PLANORA_POSITION'),        // bottom-right | bottom-left
-    'color' => env('PLANORA_COLOR'),              // e.g. #0f766e
     'label' => env('PLANORA_LABEL'),              // launcher tooltip
 
     /*

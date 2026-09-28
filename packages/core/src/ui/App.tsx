@@ -9,19 +9,6 @@ import { Report } from './views/Report';
 import { Review } from './views/Review';
 import { Sent } from './views/Sent';
 
-/** Picks black or white text for the configured accent colour. */
-export function contrastInk(color: string): string {
-  const hex = color.replace('#', '');
-  const full = hex.length === 3 ? hex.replace(/./g, (c) => c + c) : hex;
-  if (!/^[0-9a-f]{6}$/i.test(full)) return '#ffffff';
-  const [r, g, b] = [0, 2, 4].map((i) => {
-    const channel = parseInt(full.slice(i, i + 2), 16) / 255;
-    return channel <= 0.03928 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4;
-  }) as [number, number, number];
-  const luminance = 0.2126 * r + 0.7152 * g + 0.0722 * b;
-  return luminance > 0.45 ? '#111111' : '#ffffff';
-}
-
 export function App({ hideLauncher, zIndex }: { hideLauncher: boolean; zIndex: number }) {
   const widget = useWidget();
   const state = useWidgetState();
@@ -39,12 +26,7 @@ export function App({ hideLauncher, zIndex }: { hideLauncher: boolean; zIndex: n
 
   const { branding } = state.config;
   const unreadCount = Object.keys(state.unread).length;
-  const style = {
-    '--pl-accent': branding.primary_color,
-    '--pl-accent-ink': contrastInk(branding.primary_color),
-    zIndex: String(zIndex),
-    position: 'relative',
-  } as Record<string, string>;
+  const style = { zIndex: String(zIndex), position: 'relative' };
 
   let view = null;
   switch (state.view) {

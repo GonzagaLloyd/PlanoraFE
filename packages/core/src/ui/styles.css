@@ -2,17 +2,22 @@
    page, and `all: initial` stops the host's inherited styles leaking in. */
 :host {
   all: initial;
-  --pl-accent: #c94a16;
-  --pl-accent-ink: #ffffff;
+  /* One fixed design, light and dark. Primary actions use the ink colour, so
+     the widget looks the same on every site; colour is kept for status only. */
+  --pl-primary: #18181b;
+  --pl-primary-hover: #3f3f46;
+  --pl-primary-ink: #ffffff;
   --pl-bg: #ffffff;
-  --pl-surface: #f5f5f3;
-  --pl-surface-2: #ececea;
-  --pl-ink: #1c1d1f;
-  --pl-ink-dim: #62656a;
-  --pl-line: rgba(28, 29, 31, 0.12);
-  --pl-line-strong: rgba(28, 29, 31, 0.22);
+  /* Raised elements that sit on --pl-surface, e.g. the selected segment. */
+  --pl-raised: #ffffff;
+  --pl-surface: #f4f4f5;
+  --pl-surface-2: #e4e4e7;
+  --pl-ink: #18181b;
+  --pl-ink-dim: #71717a;
+  --pl-line: rgba(24, 24, 27, 0.1);
+  --pl-line-strong: rgba(24, 24, 27, 0.2);
   --pl-danger: #b42318;
-  --pl-shadow: 0 12px 40px rgba(20, 20, 24, 0.18), 0 2px 8px rgba(20, 20, 24, 0.08);
+  --pl-shadow: 0 10px 30px rgba(24, 24, 27, 0.12), 0 1px 3px rgba(24, 24, 27, 0.08);
   --pl-radius: 14px;
   --pl-font: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
 
@@ -26,15 +31,19 @@
 
 @media (prefers-color-scheme: dark) {
   :host {
-    --pl-bg: #1d1e20;
-    --pl-surface: #26272a;
-    --pl-surface-2: #2f3134;
-    --pl-ink: #ececea;
-    --pl-ink-dim: #a3a5a9;
-    --pl-line: rgba(255, 255, 255, 0.1);
-    --pl-line-strong: rgba(255, 255, 255, 0.2);
+    --pl-primary: #fafafa;
+    --pl-primary-hover: #d4d4d8;
+    --pl-primary-ink: #18181b;
+    --pl-bg: #18181b;
+    --pl-raised: #3f3f46;
+    --pl-surface: #27272a;
+    --pl-surface-2: #3f3f46;
+    --pl-ink: #fafafa;
+    --pl-ink-dim: #a1a1aa;
+    --pl-line: rgba(255, 255, 255, 0.08);
+    --pl-line-strong: rgba(255, 255, 255, 0.16);
     --pl-danger: #f97066;
-    --pl-shadow: 0 12px 40px rgba(0, 0, 0, 0.5), 0 2px 8px rgba(0, 0, 0, 0.3);
+    --pl-shadow: 0 10px 30px rgba(0, 0, 0, 0.45), 0 1px 3px rgba(0, 0, 0, 0.3);
     --pl-st-to_do: #9ca3af;
     --pl-st-in_progress: #60a5fa;
     --pl-st-blocked: #fb923c;
@@ -84,7 +93,7 @@ button {
 }
 
 :focus-visible {
-  outline: 2px solid var(--pl-accent);
+  outline: 2px solid var(--pl-ink);
   outline-offset: 2px;
 }
 
@@ -108,15 +117,15 @@ button {
   height: 56px;
   border-radius: 50%;
   border: none;
-  background: var(--pl-accent);
-  color: var(--pl-accent-ink);
+  background: var(--pl-primary);
+  color: var(--pl-primary-ink);
   box-shadow: var(--pl-shadow);
   display: grid;
   place-items: center;
-  transition: transform 160ms ease;
+  transition: background-color 120ms ease;
 }
 .pl-launcher:hover {
-  transform: scale(1.05);
+  background: var(--pl-primary-hover);
 }
 .pl-launcher svg {
   width: 26px;
@@ -327,10 +336,20 @@ button {
 .pl-body {
   flex: 1;
   overflow-y: auto;
-  padding: 16px;
+  padding: 20px;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 20px;
+}
+
+/* Scrolls (wheel, touch, keyboard) without showing a scrollbar.
+   scrollbar-width covers Chrome, Edge and Firefox; the pseudo-element covers Safari. */
+.pl-body {
+  scrollbar-width: none;
+  overscroll-behavior: contain;
+}
+.pl-body::-webkit-scrollbar {
+  display: none;
 }
 
 .pl-footer {
@@ -374,13 +393,13 @@ button {
   cursor: not-allowed;
 }
 .pl-btn-primary {
-  background: var(--pl-accent);
-  border-color: var(--pl-accent);
-  color: var(--pl-accent-ink);
+  background: var(--pl-primary);
+  border-color: var(--pl-primary);
+  color: var(--pl-primary-ink);
 }
 .pl-btn-primary:hover {
-  background: var(--pl-accent);
-  filter: brightness(1.06);
+  background: var(--pl-primary-hover);
+  border-color: var(--pl-primary-hover);
 }
 .pl-btn-ghost {
   border-color: transparent;
@@ -395,9 +414,10 @@ button {
   border: none;
   background: none;
   padding: 0;
-  color: var(--pl-accent);
+  color: var(--pl-ink);
   font-weight: 500;
-  text-decoration: none;
+  text-decoration: underline;
+  text-underline-offset: 2px;
   display: inline-flex;
   align-items: center;
   gap: 4px;
@@ -409,33 +429,64 @@ button {
 .pl-field {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
 }
 .pl-label {
-  font-weight: 500;
+  font-weight: 600;
   font-size: 13px;
+}
+.pl-label-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 .pl-hint {
   font-size: 12px;
   color: var(--pl-ink-dim);
 }
+/* Filled fields: quiet at rest, a plain ink border on focus. */
 .pl-input,
 .pl-textarea {
   width: 100%;
-  border: 1px solid var(--pl-line-strong);
-  border-radius: 9px;
-  background: var(--pl-bg);
-  padding: 9px 11px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: var(--pl-surface);
+  padding: 10px 12px;
+  line-height: 1.5;
   outline: none;
+  transition:
+    border-color 120ms ease,
+    background-color 120ms ease;
+}
+.pl-input::placeholder,
+.pl-textarea::placeholder {
+  color: var(--pl-ink-dim);
+  opacity: 1;
+}
+.pl-input:hover,
+.pl-textarea:hover {
+  border-color: var(--pl-line-strong);
 }
 .pl-input:focus,
 .pl-textarea:focus {
-  border-color: var(--pl-accent);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--pl-accent) 20%, transparent);
+  border-color: var(--pl-ink);
+  background: var(--pl-bg);
+}
+.pl-input:focus-visible,
+.pl-textarea:focus-visible {
+  outline: none;
 }
 .pl-textarea {
-  min-height: 110px;
+  min-height: 120px;
   resize: vertical;
+}
+@media (prefers-reduced-motion: reduce) {
+  .pl-input,
+  .pl-textarea {
+    transition: none;
+  }
 }
 .pl-invalid {
   border-color: var(--pl-danger);
@@ -453,19 +504,6 @@ button {
   color: var(--pl-danger);
 }
 
-.pl-check {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  cursor: pointer;
-}
-.pl-check input {
-  margin: 2px 0 0;
-  accent-color: var(--pl-accent);
-  width: 16px;
-  height: 16px;
-  flex-shrink: 0;
-}
 
 .pl-segment {
   display: grid;
@@ -488,9 +526,9 @@ button {
   gap: 6px;
 }
 .pl-segment button[aria-pressed='true'] {
-  background: var(--pl-bg);
+  background: var(--pl-raised);
   color: var(--pl-ink);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
 }
 .pl-segment svg {
   width: 15px;
@@ -530,12 +568,11 @@ button {
   padding: 12px;
 }
 .pl-choice:hover {
-  border-color: var(--pl-accent);
-  background: color-mix(in srgb, var(--pl-accent) 5%, var(--pl-bg));
+  border-color: var(--pl-line-strong);
+  background: var(--pl-surface);
 }
 .pl-choice:hover .pl-choice-arrow {
-  color: var(--pl-accent);
-  transform: translateX(2px);
+  color: var(--pl-ink);
 }
 /* Scoped class selectors only: a bare `.pl-choice span` would also restyle
    the icon box (a span) and knock the icon off-centre. */
@@ -546,8 +583,8 @@ button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  background: color-mix(in srgb, var(--pl-accent) 12%, var(--pl-bg));
-  color: var(--pl-accent);
+  background: var(--pl-surface);
+  color: var(--pl-ink);
   flex-shrink: 0;
 }
 .pl-choice-icon svg {
@@ -578,9 +615,7 @@ button {
   height: 18px;
   flex-shrink: 0;
   color: var(--pl-ink-dim);
-  transition:
-    transform 140ms ease,
-    color 140ms ease;
+  transition: color 120ms ease;
 }
 @media (prefers-reduced-motion: reduce) {
   .pl-choice-arrow {
@@ -718,78 +753,155 @@ button {
 /* Report & review                                                   */
 /* ---------------------------------------------------------------- */
 
-.pl-shot {
-  border: 1px solid var(--pl-line);
-  border-radius: 12px;
-  padding: 10px;
+/* Attachments: the screenshot and added files as one row of thumbnails. */
+.pl-tiles {
   display: flex;
-  gap: 12px;
-  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
 }
-.pl-shot img,
-.pl-shot-placeholder {
-  width: 96px;
-  height: 64px;
-  object-fit: cover;
-  object-position: top;
-  border-radius: 7px;
-  border: 1px solid var(--pl-line);
+.pl-tile {
+  position: relative;
+  width: 76px;
+  height: 58px;
+  border-radius: 10px;
+  overflow: hidden;
   background: var(--pl-surface);
+  border: 1px solid var(--pl-line);
   flex-shrink: 0;
 }
-.pl-shot-placeholder {
-  display: grid;
-  place-items: center;
+.pl-tile img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: top;
+}
+.pl-tile-empty {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  align-items: center;
+  justify-content: center;
   color: var(--pl-ink-dim);
 }
-.pl-shot-placeholder svg {
+.pl-tile-empty svg {
   width: 20px;
   height: 20px;
 }
-.pl-shot-body {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  min-width: 0;
-}
-
-.pl-files {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-.pl-file {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  max-width: 100%;
-  background: var(--pl-surface);
-  border-radius: 8px;
-  padding: 4px 4px 4px 10px;
-  font-size: 12px;
-}
-.pl-file span {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  max-width: 180px;
-}
-.pl-file button {
-  width: 22px;
-  height: 22px;
-  border: none;
+.pl-tile-tag {
+  position: absolute;
+  left: 4px;
+  bottom: 4px;
+  padding: 1px 6px;
   border-radius: 6px;
-  background: transparent;
-  display: grid;
-  place-items: center;
-  color: var(--pl-ink-dim);
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 16px;
+  color: #ffffff;
+  background: rgba(24, 24, 27, 0.72);
 }
-.pl-file button:hover {
-  background: var(--pl-surface-2);
+.pl-tile-remove {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+  background: rgba(24, 24, 27, 0.72);
 }
-.pl-file svg {
+.pl-tile-remove:hover {
+  background: rgba(24, 24, 27, 0.9);
+}
+.pl-tile-remove svg {
   width: 12px;
   height: 12px;
+}
+.pl-tile-add {
+  border: 1px dashed var(--pl-line-strong);
+  background: transparent;
+  color: var(--pl-ink-dim);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  font-size: 11px;
+  font-weight: 500;
+}
+.pl-tile-add:hover {
+  color: var(--pl-ink);
+  border-color: var(--pl-ink-dim);
+  background: var(--pl-surface);
+}
+.pl-tile-add svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* Toggle row: text on the left, a switch on the right. */
+.pl-switch-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: var(--pl-surface);
+  cursor: pointer;
+}
+.pl-switch-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  font-weight: 500;
+}
+.pl-switch-text .pl-hint {
+  font-weight: 400;
+}
+.pl-switch {
+  appearance: none;
+  -webkit-appearance: none;
+  position: relative;
+  flex-shrink: 0;
+  width: 36px;
+  height: 20px;
+  margin: 0;
+  border-radius: 10px;
+  background: var(--pl-line-strong);
+  cursor: pointer;
+  transition: background-color 140ms ease;
+}
+.pl-switch::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #ffffff;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+  transition: transform 140ms ease;
+}
+.pl-switch:checked {
+  background: var(--pl-primary);
+}
+.pl-switch:checked::after {
+  transform: translateX(16px);
+  background: var(--pl-primary-ink);
+}
+@media (prefers-reduced-motion: reduce) {
+  .pl-switch,
+  .pl-switch::after {
+    transition: none;
+  }
 }
 
 .pl-summary {
@@ -1000,7 +1112,7 @@ button {
   background: var(--pl-line-strong);
 }
 .pl-dot[data-author='reporter'] {
-  background: var(--pl-accent);
+  background: var(--pl-ink);
 }
 .pl-timeline p {
   margin: 0;

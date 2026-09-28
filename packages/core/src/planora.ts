@@ -24,9 +24,8 @@ export interface InitOptions {
   user?: PlanoraUser | null;
   /** Extra context attached to every report, e.g. { appVersion: '2.3.1', tenant: 'acme' }. */
   metadata?: Metadata;
-  /** Overrides the dashboard branding. */
+  /** Overrides the site's settings. The visual design itself is fixed (light and dark). */
   position?: 'bottom-right' | 'bottom-left';
-  primaryColor?: string;
   launcherLabel?: string;
   /** Hide the floating bubble and open the widget from your own button with Planora.open(). */
   hideLauncher?: boolean;
@@ -41,7 +40,7 @@ const FALLBACK_CONFIG: WidgetConfig = {
   enabled: true,
   site_name: '',
   mode: 'team',
-  branding: { primary_color: '#C94A16', launcher_label: 'Report an issue', position: 'bottom-right' },
+  branding: { launcher_label: 'Report an issue', position: 'bottom-right' },
   features: { screenshot: true, attachments: true, replies: true },
   limits: { max_attachments: 5, max_attachment_bytes: 10 * 1024 * 1024 },
 };
@@ -370,7 +369,6 @@ export class PlanoraWidget {
     config = {
       ...config,
       branding: {
-        primary_color: options.primaryColor ?? config.branding.primary_color,
         launcher_label: options.launcherLabel ?? config.branding.launcher_label,
         position: options.position ?? config.branding.position,
       },

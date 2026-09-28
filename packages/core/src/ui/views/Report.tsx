@@ -1,11 +1,11 @@
-import { useEffect, useRef, useState } from 'preact/hooks';
+import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import type { CaptureContext } from '@planora/widget-contract';
 import type { DraftState } from '../../store/store';
 import { formatBytes } from '../../util';
 import { Body, Footer, Header } from '../components/common';
 import { useWidget, useWidgetState } from '../context';
 import { t } from '../i18n';
-import { IconBug, IconClose, IconImage, IconPaperclip, IconSpark } from '../icons';
+import { IconBug, IconClose, IconFile, IconPlus, IconSpark } from '../icons';
 
 export function validateDraft(draft: DraftState): { title?: string; description?: string } {
   const errors: { title?: string; description?: string } = {};
@@ -20,9 +20,16 @@ export function detailParts(context: CaptureContext | null): string[] {
   const failed = context.network.length;
   const parts: string[] = [];
   if (errors) parts.push(`${errors} ${errors === 1 ? 'error' : 'errors'}`);
-  if (failed) parts.push(`${failed} failed or slow ${failed === 1 ? 'request' : 'requests'}`);
+  if (failed) parts.push(`${failed} failed ${failed === 1 ? 'request' : 'requests'}`);
   parts.push('page address, browser');
   return parts;
+}
+
+/** Object URLs for image previews, revoked when the files change or the view closes. */
+function usePreviews(files: File[]): Array<string | null> {
+  const urls = useMemo(() => files.map((file) => (file.type.startsWith('image/') ? URL.createObjectURL(file) : null)), [files]);
+  useEffect(() => () => urls.forEach((url) => url && URL.revokeObjectURL(url)), [urls]);
+  return urls;
 }
 
 export function Report() {
@@ -32,6 +39,7 @@ export function Report() {
   const [fileError, setFileError] = useState<string | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
   const titleInput = useRef<HTMLInputElement>(null);
+  const previews = usePreviews(draft?.attachments ?? []);
 
   useEffect(() => {
     titleInput.current?.focus();
@@ -42,6 +50,9 @@ export function Report() {
   const errors = showErrors ? validateDraft(draft) : {};
   const maxFiles = config?.limits.max_attachments ?? 5;
   const maxBytes = config?.limits.max_attachment_bytes ?? 10 * 1024 * 1024;
+  const screenshotOn = config?.features.screenshot !== false && draft.screenshotStatus !== 'unavailable';
+  const attachmentsOn = config?.features.attachments !== false;
+  const canAddMore = attachmentsOn && draft.attachments.length < maxFiles;
 
   const addFiles = (files: File[]) => {
     setFileError(null);
@@ -61,8 +72,8 @@ export function Report() {
   };
 
   const onPaste = (event: ClipboardEvent) => {
-    const items = Array.from(event.clipboardData?.items ?? []);
-    const images = items
+    if (!attachmentsOn) return;
+    const images = Array.from(event.clipboardData?.items ?? [])
       .filter((item) => item.kind === 'file' && item.type.startsWith('image/'))
       .map((item) => item.getAsFile())
       .filter((file): file is File => Boolean(file));
@@ -82,6 +93,7 @@ export function Report() {
   };
 
   const type = draft.type;
+  const details = detailParts(draft.context);
 
   return (
     <>
@@ -124,16 +136,14 @@ export function Report() {
           <label class="pl-label" for="pl-description">
             {t.descriptionLabel[type]}
           </label>
-          <span class="pl-hint" id="pl-description-hint">
-            {t.descriptionHint[type]}
-          </span>
           <textarea
             id="pl-description"
             class={`pl-textarea${errors.description ? ' pl-invalid' : ''}`}
             value={draft.description}
             maxLength={10_000}
+            placeholder={t.descriptionHint[type]}
             aria-invalid={Boolean(errors.description)}
-            aria-describedby={errors.description ? 'pl-description-error' : 'pl-description-hint'}
+            aria-describedby={errors.description ? 'pl-description-error' : undefined}
             onInput={(e) => widget.updateDraft({ description: e.currentTarget.value })}
             onPaste={onPaste}
           />
@@ -144,85 +154,96 @@ export function Report() {
           )}
         </div>
 
-        {config?.features.screenshot !== false && (
-          <div class="pl-shot">
-            {draft.screenshotUrl ? (
-              <img src={draft.screenshotUrl} alt={t.screenshot} />
-            ) : (
-              <span class="pl-shot-placeholder">{draft.screenshotStatus === 'capturing' ? <span class="pl-spinner" /> : <IconImage />}</span>
-            )}
-            <div class="pl-shot-body">
-              <span class="pl-label">{t.screenshot}</span>
-              {draft.screenshotStatus === 'capturing' && <span class="pl-hint">{t.capturingScreenshot}</span>}
-              {draft.screenshotStatus === 'unavailable' && <span class="pl-hint">{t.screenshotUnavailable}</span>}
-              {draft.screenshotStatus === 'ready' && (
-                <label class="pl-check">
-                  <input
-                    id="pl-include-screenshot"
-                    type="checkbox"
-                    checked={draft.includeScreenshot}
-                    onChange={(e) => widget.updateDraft({ includeScreenshot: e.currentTarget.checked })}
-                  />
-                  <span>{t.includeScreenshot}</span>
-                </label>
-              )}
-            </div>
-          </div>
-        )}
-
-        {config?.features.attachments !== false && (
+        {(screenshotOn || attachmentsOn) && (
           <div class="pl-field">
-            <div class="pl-row">
-              <button type="button" class="pl-btn" onClick={() => fileInput.current?.click()}>
-                <IconPaperclip />
-                {t.attachImages}
-              </button>
-              <input
-                id="pl-files"
-                ref={fileInput}
-                type="file"
-                accept="image/*,application/pdf"
-                multiple
-                hidden
-                onChange={(e) => {
-                  addFiles(Array.from(e.currentTarget.files ?? []));
-                  e.currentTarget.value = '';
-                }}
-              />
+            <div class="pl-label-row">
+              <span class="pl-label" id="pl-attachments-label">
+                {t.attachmentsLabel}
+              </span>
+              {attachmentsOn && <span class="pl-hint">{t.pasteHint}</span>}
             </div>
-            <span class="pl-hint">{t.pasteHint}</span>
-            {fileError && <span class="pl-error-text">{fileError}</span>}
-            {draft.attachments.length > 0 && (
-              <div class="pl-files">
-                {draft.attachments.map((file, index) => (
-                  <span class="pl-file" key={`${file.name}-${index}`}>
-                    <span title={file.name}>{file.name}</span>
-                    <button
-                      type="button"
-                      aria-label={t.removeFile(file.name)}
-                      onClick={() => widget.updateDraft({ attachments: draft.attachments.filter((_, i) => i !== index) })}
-                    >
+            <div class="pl-tiles" role="group" aria-labelledby="pl-attachments-label">
+              {screenshotOn && draft.includeScreenshot && (
+                <div class="pl-tile pl-tile-shot">
+                  {draft.screenshotUrl ? (
+                    <img src={draft.screenshotUrl} alt={t.screenshot} />
+                  ) : (
+                    <span class="pl-tile-empty" aria-label={t.capturingScreenshot}>
+                      <span class="pl-spinner" />
+                    </span>
+                  )}
+                  <span class="pl-tile-tag">{t.screenshotTag}</span>
+                  {draft.screenshotStatus === 'ready' && (
+                    <button type="button" class="pl-tile-remove" aria-label={t.removeScreenshot} onClick={() => widget.updateDraft({ includeScreenshot: false })}>
                       <IconClose />
                     </button>
-                  </span>
-                ))}
-              </div>
-            )}
+                  )}
+                </div>
+              )}
+
+              {draft.attachments.map((file, index) => (
+                <div class="pl-tile" key={`${file.name}-${index}`} title={file.name}>
+                  {previews[index] ? (
+                    <img src={previews[index]!} alt={file.name} />
+                  ) : (
+                    <span class="pl-tile-empty">
+                      <IconFile />
+                    </span>
+                  )}
+                  <button
+                    type="button"
+                    class="pl-tile-remove"
+                    aria-label={t.removeFile(file.name)}
+                    onClick={() => widget.updateDraft({ attachments: draft.attachments.filter((_, i) => i !== index) })}
+                  >
+                    <IconClose />
+                  </button>
+                </div>
+              ))}
+
+              {screenshotOn && !draft.includeScreenshot && (
+                <button type="button" class="pl-tile pl-tile-add" onClick={() => widget.updateDraft({ includeScreenshot: true })}>
+                  <IconPlus />
+                  <span>{t.screenshotTag}</span>
+                </button>
+              )}
+
+              {canAddMore && (
+                <button type="button" class="pl-tile pl-tile-add" aria-label={t.attachImages} onClick={() => fileInput.current?.click()}>
+                  <IconPlus />
+                  <span>{t.addFile}</span>
+                </button>
+              )}
+            </div>
+            <input
+              id="pl-files"
+              ref={fileInput}
+              type="file"
+              accept="image/*,application/pdf"
+              multiple
+              hidden
+              onChange={(e) => {
+                addFiles(Array.from(e.currentTarget.files ?? []));
+                e.currentTarget.value = '';
+              }}
+            />
+            {fileError && <span class="pl-error-text">{fileError}</span>}
           </div>
         )}
 
-        <label class="pl-check">
+        <label class="pl-switch-row" for="pl-include-details">
+          <span class="pl-switch-text">
+            <span>{t.includeDetails}</span>
+            <span class="pl-hint">{t.detailsHint(details)}</span>
+          </span>
           <input
             id="pl-include-details"
+            class="pl-switch"
             type="checkbox"
+            role="switch"
             checked={draft.includeDetails}
             onChange={(e) => widget.updateDraft({ includeDetails: e.currentTarget.checked })}
           />
-          <span>
-            {t.includeDetails}
-            <br />
-            <span class="pl-hint">{t.detailsHint(detailParts(draft.context))}</span>
-          </span>
         </label>
       </Body>
       <Footer>
