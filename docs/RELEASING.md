@@ -45,8 +45,8 @@ Then **Settings** → **Actions** → **General** → *Workflow permissions*:
 - select **Read and write permissions**;
 - tick **Allow GitHub Actions to create and approve pull requests**. The workflow opens the "Version packages" PR.
 
-### 4. Add a LICENSE file
-The packages declare MIT. Create `LICENSE` at the repo root with the standard MIT text (https://choosealicense.com/licenses/mit/), and put the copyright holder you choose on the `Copyright (c) 2026 …` line.
+### 4. LICENSE ✅ done
+MIT, `Copyright (c) 2026 swiftlyph_planora`. The root `LICENSE` is copied into `packages/contract`, `packages/core`, `packages/react` and `integrations/laravel`, because npm and Packagist only ship a license file that sits inside the package folder. If the license ever changes, update all five copies.
 
 ---
 
