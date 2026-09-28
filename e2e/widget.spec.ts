@@ -407,6 +407,9 @@ test.describe('phone layout', () => {
     await expect(launcher(page)).toBeVisible();
     await launcher(page).click();
 
+    // Measure the sheet where it comes to rest, not mid slide-in: on a slow CI
+    // machine the 160ms animation can still be running.
+    await panel(page).evaluate((el) => Promise.all(el.getAnimations().map((a) => a.finished)));
     const box = (await panel(page).boundingBox())!;
     expect(box.x).toBe(0);
     expect(box.width).toBe(375);
