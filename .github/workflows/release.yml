@@ -7,6 +7,11 @@ name: Release
 # On every push to main:
 #   - changesets waiting in .changeset/  → opens or updates a "Version packages" PR
 #   - no changesets, versions not on npm → builds and publishes them
+#
+# Publishing uses npm Trusted Publishing: npm checks that the request comes from
+# this workflow in GonzagaLloyd/PlanoraFE (via GitHub's OIDC token), so no npm
+# token is stored anywhere and no 2FA code is needed. Each package lists this
+# workflow under its Trusted Publisher settings on npmjs.com.
 
 on:
   push:
@@ -22,7 +27,7 @@ jobs:
     permissions:
       contents: write # push version commits and tags
       pull-requests: write # open the "Version packages" PR
-      id-token: write # npm provenance: links each published version to this workflow run
+      id-token: write # Trusted Publishing + provenance: proves to npm this run is this workflow
     steps:
       - uses: actions/checkout@v4
 
@@ -32,6 +37,9 @@ jobs:
           cache: npm
           registry-url: https://registry.npmjs.org
 
+      # Trusted Publishing needs npm 11.5.1 or newer; Node 22 ships with npm 10.
+      - run: npm install -g npm@latest
+
       - run: npm ci
 
       # Never publish something that fails the checks CI runs.
@@ -40,13 +48,16 @@ jobs:
       - run: npm test
       - run: npm run size
 
-      - uses: changesets/action@v1
+      # Opens or updates the "Version packages" PR while changesets are pending.
+      - id: changesets
+        uses: changesets/action@v1
         with:
           version: npm run version-packages
-          publish: npm run release
           title: 'Version packages'
           commit: 'Version packages'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      # Nothing pending: publish any version that isn't on npm yet (a no-op otherwise).
+      - if: steps.changesets.outputs.hasChangesets == 'false'
+        run: npm run release

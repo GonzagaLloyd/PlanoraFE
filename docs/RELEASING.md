@@ -1,80 +1,24 @@
 # Releasing the Planora widget
 
-This guide covers publishing `@planora/widget`, `@planora/widget-react` and `@planora/widget-contract` to npm: the one-time setup, the first release, and the routine for every release after that.
+This guide covers publishing `@planora/widget`, `@planora/widget-react` and `@planora/widget-contract` to npm: how the release pipeline works, the routine for every release, and how it was set up.
 
-## Already set up in this repo
+## Current state
 
-- **Package metadata:** the three public packages have their repository links, keywords, a README each, `publishConfig.access = public` and npm provenance.
-- **Versioning:** [changesets](https://github.com/changesets/changesets). The three packages share one version number, so `@planora/widget` 1.2.0 always pairs with `@planora/widget-react` 1.2.0.
-- **Release workflow:** [`.github/workflows/release.yml`](../.github/workflows/release.yml). It runs every check, then publishes. It stays **switched off** until you set `RELEASE_ENABLED`.
-- **Dry run:** `npm run release:dry-run` builds and lists exactly what each package would upload, without publishing anything.
-- **Install test:** the packed packages were installed into a fresh project, typechecked strictly, and imported at runtime. Installing `@planora/widget` downloads only `zod` besides our own packages, because Preact and the screenshot library are bundled.
+| | |
+|---|---|
+| npm organization | [`@planora`](https://www.npmjs.com/org/planora), owner `lloydgonzaga`, 2FA on |
+| Published | `0.1.0` of all three packages, published by hand on 2026-09-28 |
+| Automatic releases | [`.github/workflows/release.yml`](../.github/workflows/release.yml) with **npm Trusted Publishing**: no npm token, no 2FA code |
+| Switch | the repository variable `RELEASE_ENABLED` = `true` |
+| Versioning | [changesets](https://github.com/changesets/changesets). The three packages share one version number, so `@planora/widget` 1.2.0 always pairs with `@planora/widget-react` 1.2.0. |
 
 Private packages are never published: the loader, the mock API and the playground.
 
----
-
-## One-time setup (≈15 minutes, done by the account owner)
-
-### 1. Create the `@planora` organization on npm
-Nobody owns the `@planora` scope yet (checked on 2026-09-28). The first person to create the org gets it, so do this soon.
-
-1. Sign in at https://www.npmjs.com. Create an account first if you need one, and **turn on two-factor authentication**.
-2. Open your avatar menu → **Add Organization**.
-3. Name: **`planora`**. This name *is* the scope: packages become `@planora/…`.
-4. Choose the **free plan** (unlimited public packages).
-5. Optionally, under the org's **Members** tab, invite teammates who should be able to publish.
-
-> If `planora` is taken by the time you try, pick another name, such as `planora-dev`. Then rename the packages, e.g. `@planora-dev/widget`: change `name` in the three `packages/*/package.json` files, the `fixed` list in `.changeset/config.json`, and the imports in `packages/react/src/index.ts` and the docs.
-
-### 2. Create a publish token
-1. On npmjs.com: avatar → **Access Tokens** → **Generate New Token** → **Granular Access Token**.
-2. Name it `PlanoraFE GitHub Actions`.
-3. **Packages and scopes:** *Read and write*, limited to the **`@planora`** scope.
-4. **Organizations:** no access needed.
-5. **Expiration:** the longest npm allows. Put a reminder in your calendar to renew it.
-6. If npm offers it, allow the token to publish without a one-time password, since GitHub Actions can't type one.
-7. Copy the token now. npm shows it only once.
-
-### 3. Give the token to GitHub, and switch the workflow on
-In https://github.com/GonzagaLloyd/PlanoraFE → **Settings** → **Secrets and variables** → **Actions**:
-1. **Secrets** tab → **New repository secret** → name `NPM_TOKEN`, value: the token.
-2. **Variables** tab → **New repository variable** → name `RELEASE_ENABLED`, value `true`.
-
-Then **Settings** → **Actions** → **General** → *Workflow permissions*:
-- select **Read and write permissions**;
-- tick **Allow GitHub Actions to create and approve pull requests**. The workflow opens the "Version packages" PR.
-
-### 4. LICENSE ✅ done
-MIT, `Copyright (c) 2026 swiftlyph_planora`. The root `LICENSE` is copied into `packages/contract`, `packages/core`, `packages/react` and `integrations/laravel`, because npm and Packagist only ship a license file that sits inside the package folder. If the license ever changes, update all five copies.
+`npm run release:dry-run` builds and lists exactly what each package would upload, without publishing anything.
 
 ---
 
-## First release (0.1.0)
-
-No changeset is needed. `changeset publish` uploads any version that isn't on npm yet, and 0.1.0 isn't.
-
-1. Push `main` (or re-run the latest **Release** workflow from the **Actions** tab).
-2. The workflow builds, typechecks, tests, checks bundle sizes, then publishes all three packages.
-3. Check:
-   - https://www.npmjs.com/package/@planora/widget shows version 0.1.0, the README, and a *Provenance* badge.
-   - In any project: `npm install @planora/widget-react` works.
-4. The workflow also pushes git tags such as `@planora/widget@0.1.0`.
-
-<details>
-<summary>Publishing the first version from your own machine instead</summary>
-
-```bash
-npm login                       # opens the browser; complete 2FA
-npm run build
-npm publish -w @planora/widget-contract -w @planora/widget -w @planora/widget-react --provenance=false
-```
-`--provenance=false` is required locally: provenance can only be generated inside CI. Later releases can go through the workflow as usual.
-</details>
-
----
-
-## Every release after that
+## Every release
 
 1. **Describe the change** on your branch:
    ```bash
@@ -94,17 +38,49 @@ npm publish -w @planora/widget-contract -w @planora/widget -w @planora/widget-re
    While the version is 0.x, breaking changes may go out as `minor`.
 2. **Commit** the new file in `.changeset/` with your code, and merge to `main` as usual.
 3. The workflow **opens or updates a "Version packages" PR**. It bumps the versions, updates the internal dependency ranges and writes a `CHANGELOG.md` for each package. Several merged changes collect into the same PR.
-4. **Merge that PR** when you want to release. The workflow runs again and publishes the new versions.
+4. **Merge that PR** when you want to release. The workflow runs every check again, then publishes the new versions with provenance, and pushes git tags such as `@planora/widget@0.2.0`.
 
 Nothing is published until step 4, so you can merge features freely and release when you're ready.
 
 ---
 
-## Optional: replace the token with Trusted Publishing
-After the first release exists on npm, you can drop the long-lived token:
-1. On npmjs.com, open each package → **Settings** → **Trusted Publisher** → **GitHub Actions**.
-2. Repository `GonzagaLloyd/PlanoraFE`, workflow file `release.yml`.
-3. Once all three are set up, delete the `NPM_TOKEN` secret.
+## How it was set up (for reference, or to redo it)
+
+### 1. npm organization ✅
+On npmjs.com: turn on **two-factor authentication**, then avatar → **Add Organization** → name `planora` → free plan (unlimited public packages).
+
+### 2. First publish by hand ✅
+Your account requires 2FA for publishing, and a GitHub token can't type a 2FA code. npm is also removing tokens that bypass 2FA (January 2027). So the first version was published from a laptop:
+
+```bash
+npm login                      # browser sign-in with the security key
+npm run build
+npm publish -w @planora/widget-contract --provenance=false   # each asks for the security key
+npm publish -w @planora/widget --provenance=false
+npm publish -w @planora/widget-react --provenance=false
+```
+- Keep this order: each package depends on the previous one.
+- `--provenance=false` is required locally, because provenance can only be generated inside CI.
+
+### 3. Trusted Publishing, per package
+Trusted Publishing can only be configured on a package that already exists, which is why step 2 came first.
+
+For each of the three packages: npmjs.com → the package → **Settings** → **Trusted Publisher** → **GitHub Actions**:
+- **Organization or user:** `GonzagaLloyd`
+- **Repository:** `PlanoraFE`
+- **Workflow filename:** `release.yml`
+- **Environment:** empty
+
+Optionally, under **Settings** → **Publishing access**, choose *"Require two-factor authentication and disallow tokens"*. After that, only this workflow or a person with the security key can publish.
+
+### 4. GitHub settings ✅
+In https://github.com/GonzagaLloyd/PlanoraFE → **Settings**:
+- **Secrets and variables → Actions → Variables:** `RELEASE_ENABLED` = `true`.
+- **Actions → General → Workflow permissions:** *Read and write permissions*, and *Allow GitHub Actions to create and approve pull requests*.
+- **No npm secret is needed.** Once Trusted Publishing works, delete the old `NPM_TOKEN` secret and revoke that token on npmjs.com (avatar → Access Tokens).
+
+### 5. LICENSE ✅
+MIT, `Copyright (c) 2026 swiftlyph_planora`. The root `LICENSE` is copied into `packages/contract`, `packages/core`, `packages/react` and `integrations/laravel`, because npm and Packagist only ship a license file that sits inside the package folder. If the license ever changes, update all five copies.
 
 ---
 
@@ -139,10 +115,10 @@ When the Planora API implements `/api/v1/widget`:
 
 | Error | Cause and fix |
 |---|---|
-| `E404 Not Found – PUT …/@planora%2fwidget` | The `@planora` org doesn't exist, or the token's account isn't a member. Do step 1. |
-| `E403 Forbidden` | The token lacks write access to `@planora`, or has expired. Create a new one (step 2) and update the secret. |
-| `EOTP` / "one-time password required" | The token can't bypass 2FA. Create a granular token that's allowed to publish without an OTP, or switch to Trusted Publishing. |
-| `provenance … only supported in CI` | You published from your laptop. Add `--provenance=false` (first-release box above). |
-| The workflow doesn't run | `RELEASE_ENABLED` isn't set to `true` (step 3). |
-| The "Version packages" PR isn't opened | Actions isn't allowed to create PRs (step 3, workflow permissions). |
+| `E404 Not Found – PUT …/@planora%2fwidget` in the workflow | That package has no Trusted Publisher set up yet, or it names a different repository or workflow file. Recheck step 3 for that package. |
+| `ENEEDAUTH` / `E401` in the workflow | npm is older than 11.5.1, or the job lacks `id-token: write`. Both are set in `release.yml`, so check they weren't removed. |
+| `EOTP` / "one-time password required" | A token was used instead of Trusted Publishing. Remove any `NODE_AUTH_TOKEN` / `NPM_TOKEN` from the workflow and set up step 3. |
+| `provenance … only supported in CI` | You published from your laptop. Add `--provenance=false` (step 2). |
+| The workflow doesn't run | `RELEASE_ENABLED` isn't set to `true` (step 4). |
+| The "Version packages" PR isn't opened | Actions isn't allowed to create PRs (step 4, workflow permissions). |
 | `You cannot publish over the previously published versions` | That version already exists on npm. Add a changeset and release a new version. |
